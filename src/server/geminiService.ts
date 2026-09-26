@@ -68,9 +68,35 @@ function isTemporaryCapacityError(err: unknown): boolean {
   return /503|UNAVAILABLE|high demand|overloaded/i.test(geminiErrorText(err));
 }
 
+export class GeminiRateLimitError extends Error {
+  retryAfterMs: number;
+
+  constructor(retryAfterMs: number) {
+    const seconds = Math.ceil(retryAfterMs / 1000);
+    super(`Gemini is limiting new images. This shot continues automatically in ${seconds} seconds.`);
+    this.name = 'GeminiRateLimitError';
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+function isRateLimitError(err: unknown): boolean {
+  if (isZeroFreeTierQuota(err)) return false;
+  return /429|RESOURCE_EXHAUSTED|quota exceeded/i.test(geminiErrorText(err));
+}
+
+function parseRetryAfterMs(message: string): number {
+  const match =
+    message.match(/retry in ([0-9.]+)\s*s/i) ||
+    message.match(/retryDelay"\s*:\s*"([0-9.]+)s/i);
+  const seconds = match ? Number(match[1]) : 45;
+  const ms = Math.ceil(seconds * 1000) + 2000;
+  return Math.min(Math.max(ms, 15_000), 120_000);
+}
+
 function toUserFacingGeminiError(err: unknown): Error {
+  const message = geminiErrorText(err);
   if (isZeroFreeTierQuota(err)) {
-    const imageModel = /image/i.test(geminiErrorText(err));
+    const imageModel = /image/i.test(message);
     return new Error(
       imageModel
         ? 'Image generation is not included on the free Gemini plan. In Google AI Studio, open the project for this API key and turn on billing, then retry the shoot.'
@@ -80,8 +106,19 @@ function toUserFacingGeminiError(err: unknown): Error {
   if (isTemporaryCapacityError(err)) {
     return new Error('Gemini is busy right now. Wait about a minute, then retry the shoot.');
   }
-  if (/429|RESOURCE_EXHAUSTED|quota exceeded/i.test(geminiErrorText(err))) {
-    return new Error('Gemini rate limit reached. Wait about a minute, then retry the shoot.');
+  if (isRateLimitError(err)) {
+    const retryMatch =
+      message.match(/retry in ([0-9.]+)\s*s/i) ||
+      message.match(/retryDelay"\s*:\s*"([0-9.]+)s/i);
+    const retrySeconds = retryMatch ? Number(retryMatch[1]) : 45;
+    const dailyQuota = /per\s*day|perday/i.test(message);
+    if (dailyQuota && retrySeconds > 180) {
+      return new Error(
+        'The daily Gemini image quota for this key is used up. Try the shoot again after the quota resets.'
+      );
+    }
+    console.error('Gemini rate limit:', message);
+    return new GeminiRateLimitError(parseRetryAfterMs(message));
   }
   return err instanceof Error ? err : new Error('Gemini request failed.');
 }
@@ -110,7 +147,9 @@ async function generateContentWithFallback(
         });
       } catch (err) {
         lastError = err;
-        if (!isTemporaryCapacityError(err)) throw toUserFacingGeminiError(err);
+        if (isRateLimitError(err) || isZeroFreeTierQuota(err) || !isTemporaryCapacityError(err)) {
+          throw toUserFacingGeminiError(err);
+        }
         if (attempt === 0 && attempts > 1) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }

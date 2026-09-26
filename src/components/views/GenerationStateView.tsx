@@ -209,6 +209,12 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
             </div>
           </div>
 
+          {!isFailed && polledShoot?.errorMessage ? (
+            <div className="bg-[#F7F6F2] border border-[#E6E4DD] p-4 text-xs text-[#57554E] leading-relaxed">
+              {polledShoot.errorMessage}
+            </div>
+          ) : null}
+
           {/* Error Banner with Actionable Recovery */}
           {isFailed && (
             <div className="bg-[#FEF2F2] border border-[#DC2626] p-4 space-y-3">

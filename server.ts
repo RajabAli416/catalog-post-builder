@@ -21,6 +21,7 @@ import {
   analyzeProductGarmentServer,
   extractCatalogueProductsServer,
   generateFashionShotServer,
+  GeminiRateLimitError,
   generateInstagramCopyServer,
   getGeminiConfig,
 } from './src/server/geminiService';
@@ -223,9 +224,18 @@ async function advanceShootOneStep(shootId: string): Promise<StudioShoot | null>
     return studioRepository.updateShoot(shootId, {
       status: allDone ? 'Complete' : 'Generating',
       jobs,
-      pipelineBusyUntil: 0,
+      errorMessage: '',
+      pipelineBusyUntil: allDone ? 0 : Date.now() + 20_000,
     });
   } catch (err: unknown) {
+    if (err instanceof GeminiRateLimitError) {
+      console.error(`Shoot ${shootId} paused for Gemini rate limit:`, err.message);
+      return studioRepository.updateShoot(shootId, {
+        status: 'Generating',
+        errorMessage: err.message,
+        pipelineBusyUntil: Date.now() + err.retryAfterMs,
+      });
+    }
     const message =
       err instanceof Error
         ? err.message

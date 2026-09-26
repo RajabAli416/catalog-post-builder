@@ -403,9 +403,28 @@ function isTemporaryCapacityError(err) {
   if (isZeroFreeTierQuota(err)) return false;
   return /503|UNAVAILABLE|high demand|overloaded/i.test(geminiErrorText(err));
 }
+var GeminiRateLimitError = class extends Error {
+  constructor(retryAfterMs) {
+    const seconds = Math.ceil(retryAfterMs / 1e3);
+    super(`Gemini is limiting new images. This shot continues automatically in ${seconds} seconds.`);
+    this.name = "GeminiRateLimitError";
+    this.retryAfterMs = retryAfterMs;
+  }
+};
+function isRateLimitError(err) {
+  if (isZeroFreeTierQuota(err)) return false;
+  return /429|RESOURCE_EXHAUSTED|quota exceeded/i.test(geminiErrorText(err));
+}
+function parseRetryAfterMs(message) {
+  const match = message.match(/retry in ([0-9.]+)\s*s/i) || message.match(/retryDelay"\s*:\s*"([0-9.]+)s/i);
+  const seconds = match ? Number(match[1]) : 45;
+  const ms = Math.ceil(seconds * 1e3) + 2e3;
+  return Math.min(Math.max(ms, 15e3), 12e4);
+}
 function toUserFacingGeminiError(err) {
+  const message = geminiErrorText(err);
   if (isZeroFreeTierQuota(err)) {
-    const imageModel = /image/i.test(geminiErrorText(err));
+    const imageModel = /image/i.test(message);
     return new Error(
       imageModel ? "Image generation is not included on the free Gemini plan. In Google AI Studio, open the project for this API key and turn on billing, then retry the shoot." : "This Gemini model is not included on the free plan. In Google AI Studio, turn on billing for this API key, then try again."
     );
@@ -413,8 +432,17 @@ function toUserFacingGeminiError(err) {
   if (isTemporaryCapacityError(err)) {
     return new Error("Gemini is busy right now. Wait about a minute, then retry the shoot.");
   }
-  if (/429|RESOURCE_EXHAUSTED|quota exceeded/i.test(geminiErrorText(err))) {
-    return new Error("Gemini rate limit reached. Wait about a minute, then retry the shoot.");
+  if (isRateLimitError(err)) {
+    const retryMatch = message.match(/retry in ([0-9.]+)\s*s/i) || message.match(/retryDelay"\s*:\s*"([0-9.]+)s/i);
+    const retrySeconds = retryMatch ? Number(retryMatch[1]) : 45;
+    const dailyQuota = /per\s*day|perday/i.test(message);
+    if (dailyQuota && retrySeconds > 180) {
+      return new Error(
+        "The daily Gemini image quota for this key is used up. Try the shoot again after the quota resets."
+      );
+    }
+    console.error("Gemini rate limit:", message);
+    return new GeminiRateLimitError(parseRetryAfterMs(message));
   }
   return err instanceof Error ? err : new Error("Gemini request failed.");
 }
@@ -433,7 +461,9 @@ async function generateContentWithFallback(ai, primaryModel, fallbacks, request)
         });
       } catch (err) {
         lastError = err;
-        if (!isTemporaryCapacityError(err)) throw toUserFacingGeminiError(err);
+        if (isRateLimitError(err) || isZeroFreeTierQuota(err) || !isTemporaryCapacityError(err)) {
+          throw toUserFacingGeminiError(err);
+        }
         if (attempt === 0 && attempts > 1) {
           await new Promise((resolve) => setTimeout(resolve, 2e3));
         }
@@ -1161,9 +1191,18 @@ async function advanceShootOneStep(shootId) {
     return studioRepository.updateShoot(shootId, {
       status: allDone ? "Complete" : "Generating",
       jobs,
-      pipelineBusyUntil: 0
+      errorMessage: "",
+      pipelineBusyUntil: allDone ? 0 : Date.now() + 2e4
     });
   } catch (err) {
+    if (err instanceof GeminiRateLimitError) {
+      console.error(`Shoot ${shootId} paused for Gemini rate limit:`, err.message);
+      return studioRepository.updateShoot(shootId, {
+        status: "Generating",
+        errorMessage: err.message,
+        pipelineBusyUntil: Date.now() + err.retryAfterMs
+      });
+    }
     const message = err instanceof Error ? err.message : "Unexpected error during fashion shoot generation.";
     console.error(`Shoot ${shootId} generation failed:`, message);
     const latestShoot = await studioRepository.getShoot(shootId);
