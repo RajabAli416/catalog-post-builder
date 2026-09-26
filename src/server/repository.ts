@@ -33,6 +33,7 @@ export interface IStudioRepository {
   getProject(id: string): Promise<StudioProject | null>;
   createProject(project: StudioProject): Promise<StudioProject>;
   updateProject(id: string, patch: Partial<StudioProject>): Promise<StudioProject | null>;
+  deleteProject(id: string): Promise<boolean>;
 
   // Products
   listProducts(projectId?: string): Promise<CatalogueProduct[]>;
@@ -122,6 +123,24 @@ export class LocalFileStudioRepository implements IStudioRepository {
     return this.transaction(true, () => {
       this.state.projects = [project, ...this.state.projects.filter((p) => p.id !== project.id)];
       return project;
+    });
+  }
+
+  async deleteProject(id: string): Promise<boolean> {
+    return this.transaction(true, () => {
+      const before = this.state.projects.length;
+      this.state.projects = this.state.projects.filter((p) => p.id !== id);
+      if (this.state.projects.length === before) return false;
+      const removedProducts = new Set(
+        this.state.products.filter((p) => p.projectId === id).map((p) => p.id)
+      );
+      this.state.products = this.state.products.filter((p) => p.projectId !== id);
+      this.state.shoots = this.state.shoots.filter((s) => s.projectId !== id);
+      this.state.generatedImages = this.state.generatedImages.filter((img) => img.projectId !== id);
+      this.state.postDrafts = this.state.postDrafts.filter(
+        (post) => post.projectId !== id && !removedProducts.has(post.productId)
+      );
+      return true;
     });
   }
 

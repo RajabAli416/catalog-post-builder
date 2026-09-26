@@ -159,6 +159,23 @@ var LocalFileStudioRepository = class {
       return project;
     });
   }
+  async deleteProject(id) {
+    return this.transaction(true, () => {
+      const before = this.state.projects.length;
+      this.state.projects = this.state.projects.filter((p) => p.id !== id);
+      if (this.state.projects.length === before) return false;
+      const removedProducts = new Set(
+        this.state.products.filter((p) => p.projectId === id).map((p) => p.id)
+      );
+      this.state.products = this.state.products.filter((p) => p.projectId !== id);
+      this.state.shoots = this.state.shoots.filter((s) => s.projectId !== id);
+      this.state.generatedImages = this.state.generatedImages.filter((img) => img.projectId !== id);
+      this.state.postDrafts = this.state.postDrafts.filter(
+        (post) => post.projectId !== id && !removedProducts.has(post.productId)
+      );
+      return true;
+    });
+  }
   async updateProject(id, patch) {
     return this.transaction(true, () => {
       const idx = this.state.projects.findIndex((p) => p.id === id);
@@ -1169,6 +1186,15 @@ function createApp() {
     };
     const created = await studioRepository.createProject(newProject);
     res.status(201).json(created);
+  });
+  app.delete("/api/projects/:id", async (req, res) => {
+    const projectId = sanitizeText(req.params.id, 80);
+    const deleted = await studioRepository.deleteProject(projectId);
+    if (!deleted) {
+      res.status(404).json({ error: "Project not found." });
+      return;
+    }
+    res.json({ deleted: true, id: projectId });
   });
   app.post(
     "/api/projects/:id/catalogue",

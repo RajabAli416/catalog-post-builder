@@ -315,6 +315,16 @@ export function createApp() {
     res.status(201).json(created);
   });
 
+  app.delete('/api/projects/:id', async (req, res) => {
+    const projectId = sanitizeText(req.params.id, 80);
+    const deleted = await studioRepository.deleteProject(projectId);
+    if (!deleted) {
+      res.status(404).json({ error: 'Project not found.' });
+      return;
+    }
+    res.json({ deleted: true, id: projectId });
+  });
+
   app.post(
     '/api/projects/:id/catalogue',
     (req, res, next) => {
