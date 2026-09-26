@@ -81,8 +81,8 @@ export async function resolveImageToBase64(imageUrlOrPath: string): Promise<{
     return { data: buffer.toString('base64'), mimeType };
   }
 
-  if (imageUrlOrPath.startsWith('/api/media/')) {
-    const pathname = decodeURIComponent(imageUrlOrPath.slice('/api/media/'.length));
+  if (imageUrlOrPath.startsWith('/api/media?')) {
+    const pathname = new URLSearchParams(imageUrlOrPath.slice('/api/media?'.length)).get('pathname') || '';
     if (!pathname.startsWith('media/') || pathname.includes('..')) {
       throw new Error('Garment reference image is missing from storage.');
     }

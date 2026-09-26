@@ -27,7 +27,7 @@ export async function storeMediaBuffer(
       addRandomSuffix: false,
       contentType: mimeType,
     });
-    return `/api/media/${pathname}`;
+    return `/api/media?pathname=${encodeURIComponent(pathname)}`;
   }
 
   if (mode === 'ephemeral') {

@@ -329,7 +329,7 @@ async function storeMediaBuffer(buffer, mimeType, prefix) {
       addRandomSuffix: false,
       contentType: mimeType
     });
-    return `/api/media/${pathname}`;
+    return `/api/media?pathname=${encodeURIComponent(pathname)}`;
   }
   if (mode === "ephemeral") {
     throw new Error(
@@ -393,8 +393,8 @@ async function resolveImageToBase64(imageUrlOrPath) {
     const buffer2 = Buffer.from(await response.arrayBuffer());
     return { data: buffer2.toString("base64"), mimeType: mimeType2 };
   }
-  if (imageUrlOrPath.startsWith("/api/media/")) {
-    const pathname = decodeURIComponent(imageUrlOrPath.slice("/api/media/".length));
+  if (imageUrlOrPath.startsWith("/api/media?")) {
+    const pathname = new URLSearchParams(imageUrlOrPath.slice("/api/media?".length)).get("pathname") || "";
     if (!pathname.startsWith("media/") || pathname.includes("..")) {
       throw new Error("Garment reference image is missing from storage.");
     }
@@ -1599,14 +1599,9 @@ function createApp() {
     }
     res.json({ deleted: true, id: postId });
   });
-  app.get(/^\/api\/media\/(.+)$/, async (req, res) => {
-    let pathname = "";
-    try {
-      pathname = decodeURIComponent(req.params[0] || "");
-    } catch {
-      res.status(400).json({ error: "Invalid media path." });
-      return;
-    }
+  app.get("/api/media", async (req, res) => {
+    const raw = req.query.pathname;
+    const pathname = typeof raw === "string" ? raw : "";
     if (!pathname.startsWith("media/") || pathname.includes("..") || pathname.includes("\\")) {
       res.status(400).json({ error: "Invalid media path." });
       return;

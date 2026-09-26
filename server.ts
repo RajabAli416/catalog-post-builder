@@ -876,14 +876,9 @@ export function createApp() {
     res.json({ deleted: true, id: postId });
   });
 
-  app.get(/^\/api\/media\/(.+)$/, async (req, res) => {
-    let pathname = '';
-    try {
-      pathname = decodeURIComponent(req.params[0] || '');
-    } catch {
-      res.status(400).json({ error: 'Invalid media path.' });
-      return;
-    }
+  app.get('/api/media', async (req, res) => {
+    const raw = req.query.pathname;
+    const pathname = typeof raw === 'string' ? raw : '';
     if (!pathname.startsWith('media/') || pathname.includes('..') || pathname.includes('\\')) {
       res.status(400).json({ error: 'Invalid media path.' });
       return;
