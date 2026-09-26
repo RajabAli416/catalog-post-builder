@@ -906,6 +906,7 @@ async function startDevServer() {
   });
 }
 
-if (!process.env.VERCEL) {
+const entry = process.argv[1] || '';
+if (!process.env.VERCEL && entry.includes('server')) {
   startDevServer();
 }
