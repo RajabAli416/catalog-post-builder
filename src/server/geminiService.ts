@@ -52,6 +52,48 @@ function createGeminiClient(): GoogleGenAI {
   });
 }
 
+const TEXT_MODEL_FALLBACKS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
+const IMAGE_MODEL_FALLBACKS = ['gemini-3.1-flash-lite-image'];
+
+function isCapacityError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /503|429|UNAVAILABLE|high demand|RESOURCE_EXHAUSTED|overloaded/i.test(message);
+}
+
+async function generateContentWithFallback(
+  ai: GoogleGenAI,
+  primaryModel: string,
+  fallbacks: string[],
+  request: {
+    contents: Parameters<GoogleGenAI['models']['generateContent']>[0]['contents'];
+    config?: Parameters<GoogleGenAI['models']['generateContent']>[0]['config'];
+  }
+) {
+  const models = [primaryModel, ...fallbacks.filter((model) => model !== primaryModel)];
+  let lastError: unknown;
+
+  for (const model of models) {
+    try {
+      return await ai.models.generateContent({
+        model,
+        contents: request.contents,
+        config: request.config,
+      });
+    } catch (err) {
+      lastError = err;
+      if (!isCapacityError(err)) throw err;
+    }
+  }
+
+  const detail = lastError instanceof Error ? lastError.message : '';
+  if (/high demand|UNAVAILABLE|503/i.test(detail)) {
+    throw new Error(
+      'Gemini is busy right now. Wait about a minute, then try again. The studio already switched to a backup model and that was busy too.'
+    );
+  }
+  throw lastError instanceof Error ? lastError : new Error('Gemini request failed.');
+}
+
 /**
  * Helper to resolve any local asset path (/src/assets/..., /uploads/..., or data URL)
  * into base64 inlineData for multimodal Gemini requests.
@@ -185,8 +227,7 @@ export async function extractCatalogueProductsServer(params: {
     if (pdfBuffer.length < 18 * 1024 * 1024) {
       try {
         const ai = createGeminiClient();
-        const response = await ai.models.generateContent({
-          model: visionModel,
+        const response = await generateContentWithFallback(ai, visionModel, TEXT_MODEL_FALLBACKS, {
           contents: {
             parts: [
               {
@@ -336,8 +377,7 @@ export async function analyzeProductGarmentServer(
     product.referenceImage || product.garmentImageUrl
   );
 
-  const response = await ai.models.generateContent({
-    model: visionModel,
+  const response = await generateContentWithFallback(ai, visionModel, TEXT_MODEL_FALLBACKS, {
     contents: {
       parts: [
         {
@@ -610,8 +650,7 @@ export async function generateFashionShotServer(params: {
     product.referenceImage || product.garmentImageUrl
   );
 
-  const response = await ai.models.generateContent({
-    model: imageModel,
+  const response = await generateContentWithFallback(ai, imageModel, IMAGE_MODEL_FALLBACKS, {
     contents: {
       parts: [
         {
@@ -693,8 +732,7 @@ export async function generateInstagramCopyServer(params: {
         ? JSON.stringify(product.garmentAnalysis)
         : product.fabricDetails;
 
-      const response = await ai.models.generateContent({
-        model: textModel,
+      const response = await generateContentWithFallback(ai, textModel, TEXT_MODEL_FALLBACKS, {
         contents: `You are the creative director for a luxury Pakistani fashion house.
 Write original Instagram carousel copy for the following garment photographed in a "${style}" campaign with a "${tone}" voice.
 CRITICAL RULE: Do NOT copy or repeat the raw catalogue specification text ("${product.rawCatalogueText}"). Write completely original, refined editorial storytelling based on the garment's visual traits:

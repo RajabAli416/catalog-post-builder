@@ -391,6 +391,35 @@ function createGeminiClient() {
     }
   });
 }
+var TEXT_MODEL_FALLBACKS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
+var IMAGE_MODEL_FALLBACKS = ["gemini-3.1-flash-lite-image"];
+function isCapacityError(err) {
+  const message = err instanceof Error ? err.message : String(err);
+  return /503|429|UNAVAILABLE|high demand|RESOURCE_EXHAUSTED|overloaded/i.test(message);
+}
+async function generateContentWithFallback(ai, primaryModel, fallbacks, request) {
+  const models = [primaryModel, ...fallbacks.filter((model) => model !== primaryModel)];
+  let lastError;
+  for (const model of models) {
+    try {
+      return await ai.models.generateContent({
+        model,
+        contents: request.contents,
+        config: request.config
+      });
+    } catch (err) {
+      lastError = err;
+      if (!isCapacityError(err)) throw err;
+    }
+  }
+  const detail = lastError instanceof Error ? lastError.message : "";
+  if (/high demand|UNAVAILABLE|503/i.test(detail)) {
+    throw new Error(
+      "Gemini is busy right now. Wait about a minute, then try again. The studio already switched to a backup model and that was busy too."
+    );
+  }
+  throw lastError instanceof Error ? lastError : new Error("Gemini request failed.");
+}
 async function resolveImageToBase64(imageUrlOrPath) {
   if (!imageUrlOrPath) {
     throw new Error("This product has no garment reference image to send to Gemini.");
@@ -479,8 +508,7 @@ async function extractCatalogueProductsServer(params) {
     if (pdfBuffer.length < 18 * 1024 * 1024) {
       try {
         const ai = createGeminiClient();
-        const response = await ai.models.generateContent({
-          model: visionModel,
+        const response = await generateContentWithFallback(ai, visionModel, TEXT_MODEL_FALLBACKS, {
           contents: {
             parts: [
               {
@@ -606,8 +634,7 @@ async function analyzeProductGarmentServer(product, aiMode) {
   const { data: base64Image, mimeType } = await resolveImageToBase64(
     product.referenceImage || product.garmentImageUrl
   );
-  const response = await ai.models.generateContent({
-    model: visionModel,
+  const response = await generateContentWithFallback(ai, visionModel, TEXT_MODEL_FALLBACKS, {
     contents: {
       parts: [
         {
@@ -826,8 +853,7 @@ async function generateFashionShotServer(params) {
   const garmentSource = await resolveImageToBase64(
     product.referenceImage || product.garmentImageUrl
   );
-  const response = await ai.models.generateContent({
-    model: imageModel,
+  const response = await generateContentWithFallback(ai, imageModel, IMAGE_MODEL_FALLBACKS, {
     contents: {
       parts: [
         {
@@ -883,8 +909,7 @@ async function generateInstagramCopyServer(params) {
     const ai = createGeminiClient();
     const { textModel } = getGeminiConfig();
     const analysisSummary = product.garmentAnalysis ? JSON.stringify(product.garmentAnalysis) : product.fabricDetails;
-    const response = await ai.models.generateContent({
-      model: textModel,
+    const response = await generateContentWithFallback(ai, textModel, TEXT_MODEL_FALLBACKS, {
       contents: `You are the creative director for a luxury Pakistani fashion house.
 Write original Instagram carousel copy for the following garment photographed in a "${style}" campaign with a "${tone}" voice.
 CRITICAL RULE: Do NOT copy or repeat the raw catalogue specification text ("${product.rawCatalogueText}"). Write completely original, refined editorial storytelling based on the garment's visual traits:
