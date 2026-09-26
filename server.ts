@@ -876,6 +876,10 @@ export function createApp() {
     res.json({ deleted: true, id: postId });
   });
 
+  app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'Unknown API route.', path: req.originalUrl });
+  });
+
   return app;
 }
 
