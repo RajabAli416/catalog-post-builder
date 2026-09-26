@@ -2,11 +2,12 @@
   "framework": "vite",
   "functions": {
     "api/index.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "studio-server.js"
     },
     "api/[...slug].ts": {
       "maxDuration": 60,
-      "includeFiles": "{server.ts,src/**,package.json}"
+      "includeFiles": "studio-server.js"
     }
   }
 }

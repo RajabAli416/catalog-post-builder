@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { createApp } from '../server';
+import { createApp } from '../studio-server.js';
 
 let app: ReturnType<typeof createApp> | null = null;
 let startupError: unknown = null;
