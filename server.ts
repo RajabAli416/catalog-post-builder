@@ -883,7 +883,7 @@ export function createApp() {
   return app;
 }
 
-async function startDevServer() {
+export async function startDevServer() {
   const app = createApp();
 
   if (process.env.NODE_ENV !== 'production') {
@@ -906,7 +906,3 @@ async function startDevServer() {
   });
 }
 
-const entry = process.argv[1] || '';
-if (!process.env.VERCEL && entry.includes('server')) {
-  startDevServer();
-}
