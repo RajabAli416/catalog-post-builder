@@ -411,8 +411,11 @@ var GeminiRateLimitError = class extends Error {
     this.retryAfterMs = retryAfterMs;
   }
 };
+function isPrepaidCreditsDepleted(err) {
+  return /prepayment credits are depleted|code"\s*:\s*402/i.test(geminiErrorText(err));
+}
 function isRateLimitError(err) {
-  if (isZeroFreeTierQuota(err)) return false;
+  if (isZeroFreeTierQuota(err) || isPrepaidCreditsDepleted(err)) return false;
   return /429|RESOURCE_EXHAUSTED|quota exceeded/i.test(geminiErrorText(err));
 }
 function parseRetryAfterMs(message) {
@@ -423,6 +426,11 @@ function parseRetryAfterMs(message) {
 }
 function toUserFacingGeminiError(err) {
   const message = geminiErrorText(err);
+  if (isPrepaidCreditsDepleted(err)) {
+    return new Error(
+      "Gemini prepaid credits are used up, so image generation cannot start. In AI Studio, open the project billing page and buy credits, then retry the shoot."
+    );
+  }
   if (isZeroFreeTierQuota(err)) {
     const imageModel = /image/i.test(message);
     return new Error(
