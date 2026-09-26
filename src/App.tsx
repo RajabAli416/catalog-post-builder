@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 
 import {
-  AIMode,
   CataloguePagePlate,
   CatalogueProduct,
   GeneratedShootImage,
@@ -32,14 +31,7 @@ import {
   StudioShoot,
 } from './types/studio';
 
-import {
-  DEFAULT_SHOOT_CONFIG,
-  INITIAL_GENERATED_IMAGES,
-  INITIAL_POST_DRAFTS,
-  INITIAL_PRODUCTS,
-  INITIAL_PROJECTS,
-  INITIAL_SHOOTS,
-} from './data/mockStudioData';
+import { DEFAULT_SHOOT_CONFIG } from './data/studioDefaults';
 
 import {
   analyzeProductGarmentApi,
@@ -51,7 +43,6 @@ import {
   RegenerateImageOverrides,
   regenerateSingleImageApi,
   saveInstagramPostApi,
-  setRuntimeAiMode,
   uploadCatalogueToServer,
 } from './services/studioApi';
 
@@ -71,29 +62,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Core Studio Data State (Hydrated from Backend Repository with Instant Seed)
-  const [projects, setProjects] = useState<StudioProject[]>(INITIAL_PROJECTS);
-  const [products, setProducts] = useState<CatalogueProduct[]>(INITIAL_PRODUCTS);
-  const [shoots, setShoots] = useState<StudioShoot[]>(INITIAL_SHOOTS);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedShootImage[]>(
-    INITIAL_GENERATED_IMAGES
-  );
-  const [postDrafts, setPostDrafts] = useState<InstagramPostDraft[]>(
-    INITIAL_POST_DRAFTS
-  );
-  const [cataloguePages, setCataloguePages] = useState<CataloguePagePlate[]>(
-    INITIAL_PROJECTS[0]?.pages || []
-  );
+  const [projects, setProjects] = useState<StudioProject[]>([]);
+  const [products, setProducts] = useState<CatalogueProduct[]>([]);
+  const [shoots, setShoots] = useState<StudioShoot[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedShootImage[]>([]);
+  const [postDrafts, setPostDrafts] = useState<InstagramPostDraft[]>([]);
+  const [cataloguePages, setCataloguePages] = useState<CataloguePagePlate[]>([]);
   const [runtimeStatus, setRuntimeStatus] =
     useState<StudioRuntimeStatus | null>(null);
+  const [studioError, setStudioError] = useState<string | null>(null);
 
-  // Active Workflow Context
-  const [newProjectTitle, setNewProjectTitle] = useState(
-    "Winter Festive '26 — Zardozi & Organza Edit"
-  );
-  const [activeProduct, setActiveProduct] = useState<CatalogueProduct>(
-    INITIAL_PRODUCTS[0]
-  );
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [activeProduct, setActiveProduct] = useState<CatalogueProduct | null>(null);
   const [shootConfig, setShootConfig] =
     useState<ShootConfiguration>(DEFAULT_SHOOT_CONFIG);
   const [activeShoot, setActiveShoot] = useState<StudioShoot | null>(null);
@@ -125,23 +105,25 @@ export default function App() {
             setCataloguePages(data.projects[0].pages);
           }
         }
-        if (data.products?.length) {
-          setProducts(data.products);
-          setActiveProduct((prev) => {
-            const matched = data.products.find(
-              (p: CatalogueProduct) => p.id === prev.id
-            );
-            return matched || data.products[0];
-          });
-        }
+        setProducts(data.products || []);
+        setActiveProduct((prev) => {
+          if (!data.products?.length) return null;
+          const matched = prev
+            ? data.products.find((p: CatalogueProduct) => p.id === prev.id)
+            : null;
+          return matched || data.products[0];
+        });
         if (data.shoots?.length) setShoots(data.shoots);
         if (data.generatedImages?.length)
           setGeneratedImages(data.generatedImages);
         if (data.postDrafts?.length) setPostDrafts(data.postDrafts);
         if (data.runtime) setRuntimeStatus(data.runtime);
+        setStudioError(null);
       })
       .catch(() => {
-        // Fallback to initial seed data if server is initializing
+        setStudioError(
+          'The studio API is not responding. Redeploy after this update so /api is served with the site.'
+        );
       });
     return () => {
       mounted = false;
@@ -150,6 +132,7 @@ export default function App() {
 
   // Keep activeProduct synchronized when products array updates
   useEffect(() => {
+    if (!activeProduct) return;
     const updated = products.find((p) => p.id === activeProduct.id);
     if (updated && updated !== activeProduct) {
       setActiveProduct(updated);
@@ -166,16 +149,17 @@ export default function App() {
   // 1A. Catalogue / Garment Upload (Real files or Instant Sample)
   const handleUploadCatalogue = async (
     sourceType: 'Catalogue PDF' | 'Garment Images',
-    files?: File[],
-    fallbackFileNames?: string[]
+    files?: File[]
   ) => {
+    if (!files || files.length === 0) {
+      throw new Error('Choose a catalogue PDF or garment images to upload.');
+    }
     const projectId = `proj-${Date.now()}`;
     const result = await uploadCatalogueToServer({
       projectId,
-      projectName: newProjectTitle || 'Untitled Seasonal Collection',
+      projectName: newProjectTitle || 'Untitled Collection',
       sourceType,
       files,
-      fallbackFileNames,
     });
 
     setProjects((prev) => [
@@ -190,8 +174,7 @@ export default function App() {
       setActiveProduct(result.products[0]);
     }
 
-    const displayFile =
-      files?.[0]?.name || fallbackFileNames?.[0] || sourceType;
+    const displayFile = files[0]?.name || sourceType;
     triggerToast(
       `Extracted ${result.products.length} garment pieces from ${displayFile}`
     );
@@ -206,7 +189,10 @@ export default function App() {
     sourcePage: number;
     croppedDataUrl: string;
   }) => {
-    const targetProjectId = projects[0]?.id || 'proj-autumn-festive';
+    const targetProjectId = projects[0]?.id;
+    if (!targetProjectId) {
+      throw new Error('Create a project by uploading a catalogue before cropping a page.');
+    }
     const createdProduct = await manualExtractProductFromPage(
       targetProjectId,
       payload
@@ -242,7 +228,7 @@ export default function App() {
       setProducts((prev) =>
         prev.map((p) => (p.id === productId ? res.product : p))
       );
-      if (activeProduct.id === productId) {
+      if (activeProduct?.id === productId) {
         setActiveProduct(res.product);
       }
       triggerToast(`Garment vision analysis complete for ${res.product.sku}`);
@@ -257,6 +243,7 @@ export default function App() {
 
   // 4. Trigger Shoot Generation -> Generation State Screen -> Results Gallery (Phase 2D, 2E, 2F)
   const handleStartGenerateShoot = async () => {
+    if (!activeProduct) return;
     try {
       const createdShoot = await createAndStartShootApi(
         activeProduct.id,
@@ -292,7 +279,7 @@ export default function App() {
       const frameCount =
         completedShoot.images?.length || shootConfig.numberOfImages;
       triggerToast(
-        `Generated ${frameCount} editorial frames for ${activeProduct.sku}`
+        `Generated ${frameCount} editorial frames for ${activeProduct?.sku || 'this garment'}`
       );
     } catch {
       if (completedShoot.images?.length) {
@@ -306,17 +293,16 @@ export default function App() {
     }
   };
 
-  const handleRetryInMockMode = async () => {
+  const handleRetryShoot = async () => {
+    if (!activeProduct) return;
     try {
-      const updatedRuntime = await setRuntimeAiMode('mock');
-      setRuntimeStatus(updatedRuntime);
       const createdShoot = await createAndStartShootApi(
         activeProduct.id,
         shootConfig
       );
       setShoots((prev) => [createdShoot, ...prev]);
       setActiveShoot(createdShoot);
-      triggerToast('Switched to Mock Mode and restarted shoot generation');
+      triggerToast('Restarted live Gemini shoot generation');
     } catch (err) {
       triggerToast(
         err instanceof Error ? err.message : 'Failed to retry shoot'
@@ -415,6 +401,7 @@ export default function App() {
   const handleSavePostDraft = async (
     draftData: Omit<InstagramPostDraft, 'id' | 'updatedAt'>
   ) => {
+    if (!activeProduct) return;
     try {
       const savedDraft = await saveInstagramPostApi({
         ...draftData,
@@ -422,14 +409,10 @@ export default function App() {
       });
       setPostDrafts((prev) => [savedDraft, ...prev]);
       triggerToast('Instagram 4:5 carousel draft saved to Project Library');
-    } catch {
-      const fallbackDraft: InstagramPostDraft = {
-        ...draftData,
-        id: `post-${Date.now()}`,
-        updatedAt: 'Just now',
-      };
-      setPostDrafts((prev) => [fallbackDraft, ...prev]);
-      triggerToast('Instagram 4:5 carousel draft saved');
+    } catch (err) {
+      triggerToast(
+        err instanceof Error ? err.message : 'Could not save the Instagram draft'
+      );
     }
   };
 
@@ -437,20 +420,6 @@ export default function App() {
     setPostDrafts((prev) => prev.filter((d) => d.id !== draftId));
     await deleteInstagramPostApi(draftId).catch(() => {});
     triggerToast('Post draft removed');
-  };
-
-  const handleToggleAIMode = async (mode: AIMode) => {
-    try {
-      const updatedRuntime = await setRuntimeAiMode(mode);
-      setRuntimeStatus(updatedRuntime);
-      triggerToast(
-        `Switched studio runtime to AI_MODE=${updatedRuntime.aiMode.toUpperCase()}`
-      );
-    } catch (err) {
-      triggerToast(
-        err instanceof Error ? err.message : 'Could not switch AI mode'
-      );
-    }
   };
 
   const selectedCarouselImages = generatedImages.filter(
@@ -641,7 +610,7 @@ export default function App() {
                   >
                     <Sparkles className="w-4 h-4" />
                     <span className="truncate">
-                      Product Workspace ({activeProduct.sku})
+                      Product Workspace{activeProduct ? ` (${activeProduct.sku})` : ''}
                     </span>
                   </button>
                 </li>
@@ -711,7 +680,7 @@ export default function App() {
                       : 'text-[#78756C]'
                   }`}
                 >
-                  {runtimeStatus.aiMode}
+                  {runtimeStatus.hasGeminiApiKey ? 'LIVE' : 'NO KEY'}
                 </span>
               )}
             </button>
@@ -720,6 +689,21 @@ export default function App() {
 
         {/* Main Workspace Viewport */}
         <main className="flex-1 min-w-0 p-6 lg:p-10 max-w-[1360px] mx-auto w-full">
+          {studioError && (
+            <div className="mb-6 border border-[#DC2626] bg-[#FEF2F2] px-4 py-3 text-sm text-[#991B1B]">
+              {studioError}
+            </div>
+          )}
+          {runtimeStatus && !runtimeStatus.hasGeminiApiKey && (
+            <div className="mb-6 border border-[#141413] bg-[#FAF9F5] px-4 py-3 text-sm text-[#141413]">
+              Add <span className="font-mono">GEMINI_API_KEY</span> in the Vercel project environment variables, then redeploy. Generation stays on the live Gemini API.
+            </div>
+          )}
+          {runtimeStatus?.storageMode === 'ephemeral' && (
+            <div className="mb-6 border border-[#141413] bg-[#FAF9F5] px-4 py-3 text-sm text-[#141413]">
+              Create a Vercel Blob store under Storage so uploads and generated images persist. Redeploy after the store is connected.
+            </div>
+          )}
           {activeTab === 'dashboard' && (
             <DashboardView
               projects={projects}
@@ -756,7 +740,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'workspace' && (
+          {activeTab === 'workspace' && activeProduct && (
             <ProductWorkspaceView
               product={activeProduct}
               allProducts={products}
@@ -770,14 +754,25 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'generating' && (
+          {activeTab === 'workspace' && !activeProduct && (
+            <div className="border border-[#E2DFD7] bg-white p-8">
+              <h1 className="font-editorial text-3xl font-semibold text-[#141413]">
+                No garment selected
+              </h1>
+              <p className="mt-2 text-sm text-[#57554E]">
+                Upload a catalogue or garment photo, then open a product to start a shoot.
+              </p>
+            </div>
+          )}
+
+          {activeTab === 'generating' && activeProduct && (
             <GenerationStateView
               product={activeProduct}
               config={shootConfig}
               activeShoot={activeShoot}
               onShootUpdated={handleShootUpdated}
               onComplete={handleCompleteGeneration}
-              onRetryInMockMode={handleRetryInMockMode}
+              onRetry={handleRetryShoot}
               onCancel={() => navigateTo('workspace')}
             />
           )}
@@ -803,7 +798,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'post-builder' && (
+          {activeTab === 'post-builder' && activeProduct && (
             <InstagramPostBuilderView
               selectedImages={selectedCarouselImages}
               allGeneratedImages={generatedImages}
@@ -839,10 +834,7 @@ export default function App() {
           )}
 
           {activeTab === 'settings' && (
-            <SettingsView
-              runtimeStatus={runtimeStatus}
-              onToggleAIMode={handleToggleAIMode}
-            />
+            <SettingsView runtimeStatus={runtimeStatus} />
           )}
         </main>
       </div>

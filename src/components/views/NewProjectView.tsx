@@ -22,8 +22,7 @@ interface NewProjectViewProps {
   onProjectNameChange: (name: string) => void;
   onUploadCatalogue: (
     sourceType: 'Catalogue PDF' | 'Garment Images',
-    files?: File[],
-    fallbackFileNames?: string[]
+    files?: File[]
   ) => Promise<void>;
   onManualExtractProduct: (payload: {
     name: string;
@@ -55,35 +54,31 @@ export const NewProjectView: React.FC<NewProjectViewProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStageText, setUploadStageText] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(
-    'AtelierNoor_Festive26_Lookbook_Sheet.pdf'
-  );
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   // Manual Crop / Page Fallback State (Phase 2B)
   const [showManualFallback, setShowManualFallback] = useState(false);
   const [selectedPageIdx, setSelectedPageIdx] = useState(0);
   const [cropBox, setCropBox] = useState({ x: 8, y: 6, width: 84, height: 86 });
-  const [manualName, setManualName] = useState('Zardozi Raw Silk Ensemble (Cropped)');
-  const [manualSku, setManualSku] = useState('AN-26-042');
-  const [manualCategory, setManualCategory] = useState('Luxury Pret · 2-Piece');
-  const [manualFabric, setManualFabric] = useState(
-    'Pure Raw Silk · Hand-Cropped from Catalogue Page'
-  );
+  const [manualName, setManualName] = useState('');
+  const [manualSku, setManualSku] = useState('');
+  const [manualCategory, setManualCategory] = useState('');
+  const [manualFabric, setManualFabric] = useState('');
   const [isExtractingManual, setIsExtractingManual] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleExecuteUpload = async (
     mode: 'Catalogue PDF' | 'Garment Images',
-    files?: File[],
-    fallbackNames?: string[]
+    files?: File[]
   ) => {
+    if (!files || files.length === 0) {
+      setUploadError('Choose a file from your device before starting extraction.');
+      return;
+    }
     setUploadMode(mode);
     setUploadError(null);
-    const displayNames =
-      files && files.length > 0
-        ? files.map((f) => f.name).join(', ')
-        : (fallbackNames || ['Catalogue_Upload.pdf']).join(', ');
+    const displayNames = files.map((f) => f.name).join(', ');
 
     setUploadedFileName(displayNames);
     setIsUploading(true);
@@ -94,7 +89,7 @@ export const NewProjectView: React.FC<NewProjectViewProps> = ({
     );
 
     try {
-      await onUploadCatalogue(mode, files, fallbackNames);
+      await onUploadCatalogue(mode, files);
     } catch (err: unknown) {
       setUploadError(
         err instanceof Error ? err.message : 'Failed to upload catalogue.'
@@ -339,21 +334,6 @@ export const NewProjectView: React.FC<NewProjectViewProps> = ({
                 className="px-4 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
               >
                 Upload {uploadMode === 'Catalogue PDF' ? 'PDF File' : 'Garment Images'} from Device
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  handleExecuteUpload(
-                    uploadMode,
-                    undefined,
-                    uploadMode === 'Catalogue PDF'
-                      ? ['AtelierNoor_Festive26_Catalogue_Master.pdf']
-                      : ['AN-26-031_Emerald_Flatlay.jpg', 'AN-26-034_Ivory_Organza.jpg']
-                  )
-                }
-                className="px-4 py-2.5 text-xs font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:border-[#141413] transition-colors whitespace-nowrap"
-              >
-                Run Extraction on Sample {uploadMode === 'Catalogue PDF' ? 'Catalogue PDF' : 'Garment Batch'}
               </button>
             </div>
 

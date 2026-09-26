@@ -21,7 +21,7 @@ interface GenerationStateViewProps {
   activeShoot: StudioShoot | null;
   onShootUpdated: (shoot: StudioShoot) => void;
   onComplete: (shoot: StudioShoot) => void;
-  onRetryInMockMode?: () => void;
+  onRetry?: () => void;
   onCancel: () => void;
 }
 
@@ -71,7 +71,7 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
   activeShoot,
   onShootUpdated,
   onComplete,
-  onRetryInMockMode,
+  onRetry,
   onCancel,
 }) => {
   const [polledShoot, setPolledShoot] = useState<StudioShoot | null>(activeShoot);
@@ -87,18 +87,17 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
     let cancelled = false;
     const startTime = Date.now();
 
-    const poll = async () => {
+    const poll = async (): Promise<boolean> => {
       try {
-        // Timeout protection after 90 seconds
-        if (Date.now() - startTime > 90000) {
+        if (Date.now() - startTime > 10 * 60 * 1000) {
           setNetworkError(
-            'Generation request timed out waiting for upstream model response. You can retry or switch to Mock Mode.'
+            'Generation is taking longer than expected. You can retry the live Gemini shoot.'
           );
-          return;
+          return false;
         }
 
         const { shoot } = await pollShootStatusApi(activeShoot.id);
-        if (cancelled) return;
+        if (cancelled) return false;
 
         setPolledShoot(shoot);
         onShootUpdated(shoot);
@@ -107,7 +106,10 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
           setTimeout(() => {
             if (!cancelled) onComplete(shoot);
           }, 400);
+          return false;
         }
+        if (shoot.status === 'Failed') return false;
+        return true;
       } catch (err: unknown) {
         if (!cancelled) {
           setNetworkError(
@@ -116,15 +118,21 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
               : 'Error communicating with backend generation service.'
           );
         }
+        return false;
       }
     };
 
-    const interval = setInterval(poll, 450);
-    poll();
+    const run = async () => {
+      while (!cancelled) {
+        const keepGoing = await poll();
+        if (!keepGoing || cancelled) return;
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
+    };
+    run();
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
   }, [activeShoot?.id]);
 
@@ -213,15 +221,15 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
                   <p className="mt-0.5 leading-relaxed">{errorMessage}</p>
                 </div>
               </div>
-              {onRetryInMockMode && (
+              {onRetry && (
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={onRetryInMockMode}
+                    onClick={onRetry}
                     className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    Switch to Mock Mode & Complete Shoot Now
+                    Retry live shoot
                   </button>
                 </div>
               )}

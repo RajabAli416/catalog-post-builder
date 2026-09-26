@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -20,10 +20,7 @@ import {
   GeneratedShootImage,
   InstagramPostDraft,
 } from '../../types/studio';
-import {
-  generateInstagramCopyApi,
-  generateOriginalEditorialCopy,
-} from '../../services/studioApi';
+import { generateInstagramCopyApi } from '../../services/studioApi';
 import { FashionImage } from '../common/FashionImage';
 
 interface InstagramPostBuilderViewProps {
@@ -55,27 +52,20 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
       ? selectedImages
       : allGeneratedImages.slice(0, 3);
 
-  const initialCopy = generateOriginalEditorialCopy(
-    activeProduct,
-    'Editorial Storytelling',
-    carouselImages[0]?.style || 'Luxury Editorial'
-  );
-
   const [coverImageId, setCoverImageId] = useState<string>(
     carouselImages[0]?.id || ''
   );
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
-  const [productTitle, setProductTitle] = useState(initialCopy.productTitle);
-  const [shortDescription, setShortDescription] = useState(
-    initialCopy.shortDescription
-  );
+  const [productTitle, setProductTitle] = useState(activeProduct.name);
+  const [shortDescription, setShortDescription] = useState('');
   const [captionTone, setCaptionTone] = useState<
     InstagramPostDraft['captionTone']
   >('Editorial Storytelling');
-  const [caption, setCaption] = useState(initialCopy.caption);
-  const [hashtags, setHashtags] = useState<string[]>(initialCopy.hashtags);
+  const [caption, setCaption] = useState('');
+  const [hashtags, setHashtags] = useState<string[]>([]);
   const [customHashtagInput, setCustomHashtagInput] = useState('');
-  const [cta, setCta] = useState(initialCopy.cta);
+  const [cta, setCta] = useState('');
+  const [copyError, setCopyError] = useState<string | null>(null);
   const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState(false);
 
@@ -140,20 +130,21 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
       setCaption(fresh.caption);
       setHashtags(fresh.hashtags);
       setCta(fresh.cta);
-    } catch {
-      const fallback = generateOriginalEditorialCopy(
-        activeProduct,
-        nextTone,
-        currentPreviewImage?.style || 'Luxury Editorial'
+      setCopyError(null);
+    } catch (err) {
+      setCopyError(
+        err instanceof Error ? err.message : 'Could not generate Instagram copy.'
       );
-      setProductTitle(fallback.productTitle);
-      setShortDescription(fallback.shortDescription);
-      setCaption(fallback.caption);
-      setHashtags(fallback.hashtags);
     } finally {
       setIsGeneratingCopy(false);
     }
   };
+
+  useEffect(() => {
+    handleRegenerateEditorialCopy('Editorial Storytelling');
+    // Generate real Gemini copy once when this garment opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProduct.id]);
 
   const handleAddCustomHashtag = (e: React.FormEvent) => {
     e.preventDefault();
@@ -533,6 +524,9 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                 {isGeneratingCopy ? 'Drafting Copy...' : 'Draft Fresh Variation'}
               </button>
             </div>
+            {copyError && (
+              <p className="text-xs text-[#991B1B]">{copyError}</p>
+            )}
 
             {/* Tone Selector */}
             <div>

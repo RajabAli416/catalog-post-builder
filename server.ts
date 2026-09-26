@@ -2,10 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import { createServer as createViteServer } from 'vite';
 import {
-  AIMode,
   AspectRatioType,
   BackgroundType,
   CatalogueProduct,
@@ -27,9 +24,24 @@ import {
   generateInstagramCopyServer,
   getGeminiConfig,
 } from './src/server/geminiService';
-import { DEFAULT_SHOOT_CONFIG } from './src/data/mockStudioData';
+import { DEFAULT_SHOOT_CONFIG } from './src/data/studioDefaults';
+import { storeMediaBuffer } from './src/server/mediaStore';
+import { getStorageMode } from './src/server/stateStore';
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+
+function buildRuntime() {
+  const geminiCfg = getGeminiConfig();
+  return {
+    aiMode: 'live' as const,
+    envAiMode: 'live' as const,
+    hasGeminiApiKey: geminiCfg.hasValidKey,
+    imageModel: geminiCfg.imageModel,
+    visionModel: geminiCfg.visionModel,
+    textModel: geminiCfg.textModel,
+    storageMode: getStorageMode(),
+  };
+}
 
 // Security: sanitize text inputs (Phase 2K)
 function sanitizeText(input: unknown, maxLength = 2000): string {
@@ -74,22 +86,8 @@ const ALLOWED_RATIOS: AspectRatioType[] = [
 ];
 
 // Security: Multer upload configuration with strict file type & size limits (25MB max)
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    if (!fs.existsSync(UPLOADS_DIR)) {
-      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-    }
-    cb(null, UPLOADS_DIR);
-  },
-  filename: (_req, file, cb) => {
-    const safeExt = path.extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '');
-    const uniqueName = `upload-${Date.now()}-${Math.round(Math.random() * 1e6)}${safeExt}`;
-    cb(null, uniqueName);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 25 * 1024 * 1024, // 25MB max per file
     files: 12,
@@ -112,142 +110,120 @@ const upload = multer({
   },
 });
 
-/**
- * Asynchronous Multi-Shot Execution Pipeline (Phase 2E & 2F)
- * Runs each shot as an independent generation job and updates real backend status:
- * Queued -> Analyzing garment -> Generating -> Processing -> Complete (or Failed)
- */
-async function executeShootPipelineAsync(shootId: string) {
-  const shoot = await studioRepository.getShoot(shootId);
-  if (!shoot) return;
+const shootLocks = new Set<string>();
 
-  const product = await studioRepository.getProduct(shoot.productId);
-  if (!product) {
-    await studioRepository.updateShoot(shootId, {
-      status: 'Failed',
-      errorMessage: 'Source garment product record not found.',
-    });
-    return;
+async function advanceShootOneStep(shootId: string): Promise<StudioShoot | null> {
+  if (shootLocks.has(shootId)) {
+    return studioRepository.getShoot(shootId);
   }
 
-  const aiMode = await studioRepository.getAiMode();
+  const existing = await studioRepository.getShoot(shootId);
+  if (!existing) return null;
+  if (existing.status === 'Complete' || existing.status === 'Failed') return existing;
+  if (existing.pipelineBusyUntil && existing.pipelineBusyUntil > Date.now()) {
+    return existing;
+  }
 
+  shootLocks.add(shootId);
   try {
-    // Stage 1: Analyzing garment (if not already analyzed or refreshing)
     await studioRepository.updateShoot(shootId, {
-      status: 'Analyzing garment',
-      jobs: shoot.jobs.map((j, idx) =>
-        idx === 0 ? { ...j, status: 'Analyzing garment' } : j
-      ),
+      pipelineBusyUntil: Date.now() + 55_000,
     });
 
-    let analysis = product.garmentAnalysis;
-    if (!analysis || analysis.modeUsed !== aiMode) {
-      if (aiMode === 'mock') {
-        await new Promise((r) => setTimeout(r, 450));
-      }
-      analysis = await analyzeProductGarmentServer(product, aiMode);
-      await studioRepository.saveGarmentAnalysis(product.id, analysis);
-    } else if (aiMode === 'mock') {
-      await new Promise((r) => setTimeout(r, 350));
+    const shoot = await studioRepository.getShoot(shootId);
+    const product = shoot ? await studioRepository.getProduct(shoot.productId) : null;
+    if (!shoot || !product) {
+      return studioRepository.updateShoot(shootId, {
+        status: 'Failed',
+        errorMessage: 'Source garment product record not found.',
+        pipelineBusyUntil: 0,
+      });
     }
 
-    // Stage 2: Execute separate generation jobs for each requested shot (Phase 2E)
+    const aiMode = await studioRepository.getAiMode();
+    if (!product.garmentAnalysis) {
+      await studioRepository.updateShoot(shootId, {
+        status: 'Analyzing garment',
+        jobs: shoot.jobs.map((job, idx) =>
+          idx === 0 ? { ...job, status: 'Analyzing garment' } : job
+        ),
+      });
+      const analysis = await analyzeProductGarmentServer(product, aiMode);
+      await studioRepository.saveGarmentAnalysis(product.id, analysis);
+      return studioRepository.updateShoot(shootId, {
+        status: 'Generating',
+        pipelineBusyUntil: 0,
+      });
+    }
+
+    const jobs = [...shoot.jobs];
+    const index = jobs.findIndex((job) => job.status !== 'Complete');
+    if (index === -1) {
+      return studioRepository.updateShoot(shootId, {
+        status: 'Complete',
+        pipelineBusyUntil: 0,
+      });
+    }
+
+    const job = jobs[index];
+    jobs[index] = { ...job, status: 'Generating' };
     await studioRepository.updateShoot(shootId, {
       status: 'Generating',
+      jobs: [...jobs],
     });
 
-    const currentJobs = [...shoot.jobs];
-    const createdImages: GeneratedShootImage[] = [];
+    const shotResult = await generateFashionShotServer({
+      product,
+      analysis: product.garmentAnalysis,
+      config: shoot.config,
+      shotType: job.shotType,
+      shotIndex: index,
+      aiMode,
+    });
 
-    for (let i = 0; i < currentJobs.length; i++) {
-      const job = currentJobs[i];
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const shortPersona = shoot.config.model.personaName.split(' ')[0];
+    const newImage: GeneratedShootImage = {
+      id: `img-${Date.now()}-${index + 1}`,
+      shootId: shoot.id,
+      productId: product.id,
+      projectId: shoot.projectId,
+      imageUrl: shotResult.imageUrl,
+      garmentReferenceUrl: product.referenceImage || product.garmentImageUrl,
+      productName: product.name,
+      productSku: product.sku,
+      shotType: job.shotType,
+      modelSummary: `${shortPersona} · ${shoot.config.model.modelStyle} (${shoot.config.model.ageRange})`,
+      style: shoot.config.shootStyle,
+      background: shoot.config.background,
+      aspectRatio: shoot.config.aspectRatio,
+      status: 'Ready',
+      promptNotes: shotResult.promptNotes,
+      masterPromptUsed: shotResult.masterPromptUsed,
+      cropVariant: shotResult.cropVariant,
+      selectedForPost: index < 3,
+      createdAt: `Today, ${nowTime}`,
+    };
 
-      // Mark this individual shot job as Generating
-      currentJobs[i] = { ...job, status: 'Generating' };
-      await studioRepository.updateShoot(shootId, {
-        status: 'Generating',
-        jobs: [...currentJobs],
-      });
-
-      if (aiMode === 'mock') {
-        await new Promise((r) => setTimeout(r, 480));
+    await studioRepository.createGeneratedImage(newImage);
+    jobs[index] = { ...job, status: 'Complete', imageId: newImage.id };
+    const allDone = jobs.every((item) => item.status === 'Complete');
+    if (allDone) {
+      const latestProduct = await studioRepository.getProduct(product.id);
+      if (latestProduct) {
+        await studioRepository.updateProduct(product.id, {
+          generatedCount: (latestProduct.generatedCount || 0) + jobs.length,
+        });
       }
-
-      // Call Gemini (or mock in mock mode) for this individual shot
-      const shotResult = await generateFashionShotServer({
-        product,
-        analysis,
-        config: shoot.config,
-        shotType: job.shotType,
-        shotIndex: i,
-        aiMode,
-      });
-
-      // Stage 3: Processing frame
-      currentJobs[i] = { ...job, status: 'Processing' };
-      await studioRepository.updateShoot(shootId, {
-        status: i === currentJobs.length - 1 ? 'Processing' : 'Generating',
-        jobs: [...currentJobs],
-      });
-
-      if (aiMode === 'mock') {
-        await new Promise((r) => setTimeout(r, 220));
-      }
-
-      const nowTime = new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      const shortPersona = shoot.config.model.personaName.split(' ')[0];
-
-      const newImage: GeneratedShootImage = {
-        id: `img-${Date.now()}-${i + 1}`,
-        shootId: shoot.id,
-        productId: product.id,
-        projectId: shoot.projectId,
-        imageUrl: shotResult.imageUrl,
-        garmentReferenceUrl: product.referenceImage || product.garmentImageUrl,
-        productName: product.name,
-        productSku: product.sku,
-        shotType: job.shotType,
-        modelSummary: `${shortPersona} · ${shoot.config.model.modelStyle} (${shoot.config.model.ageRange})`,
-        style: shoot.config.shootStyle,
-        background: shoot.config.background,
-        aspectRatio: shoot.config.aspectRatio,
-        status: 'Ready',
-        promptNotes: shotResult.promptNotes,
-        masterPromptUsed: shotResult.masterPromptUsed,
-        cropVariant: shotResult.cropVariant,
-        selectedForPost: i < 3,
-        createdAt: `Today, ${nowTime}`,
-      };
-
-      await studioRepository.createGeneratedImage(newImage);
-      createdImages.push(newImage);
-
-      currentJobs[i] = {
-        ...job,
-        status: 'Complete',
-        imageId: newImage.id,
-      };
-      await studioRepository.updateShoot(shootId, {
-        jobs: [...currentJobs],
-      });
     }
 
-    // Update product generated count
-    const latestProduct = await studioRepository.getProduct(product.id);
-    if (latestProduct) {
-      await studioRepository.updateProduct(product.id, {
-        generatedCount: (latestProduct.generatedCount || 0) + createdImages.length,
-      });
-    }
-
-    // Stage 4: Complete
-    await studioRepository.updateShoot(shootId, {
-      status: 'Complete',
-      jobs: currentJobs,
+    return studioRepository.updateShoot(shootId, {
+      status: allDone ? 'Complete' : 'Generating',
+      jobs,
+      pipelineBusyUntil: 0,
     });
   } catch (err: unknown) {
     const message =
@@ -255,22 +231,39 @@ async function executeShootPipelineAsync(shootId: string) {
         ? err.message
         : 'Unexpected error during fashion shoot generation.';
     console.error(`Shoot ${shootId} generation failed:`, message);
-
     const latestShoot = await studioRepository.getShoot(shootId);
-    const updatedJobs: ShootShotJob[] = (latestShoot?.jobs || shoot.jobs).map((j) =>
-      j.status === 'Complete' ? j : { ...j, status: 'Failed', error: message }
+    const updatedJobs: ShootShotJob[] = (latestShoot?.jobs || existing.jobs).map((job) =>
+      job.status === 'Complete' ? job : { ...job, status: 'Failed', error: message }
     );
-
-    await studioRepository.updateShoot(shootId, {
+    return studioRepository.updateShoot(shootId, {
       status: 'Failed',
       errorMessage: message,
       jobs: updatedJobs,
+      pipelineBusyUntil: 0,
     });
+  } finally {
+    shootLocks.delete(shootId);
   }
 }
 
-async function startServer() {
+
+export function createApp() {
   const app = express();
+
+  if (process.env.VERCEL) {
+    app.use((req, _res, next) => {
+      const url = req.url || '/';
+      const queryIndex = url.indexOf('?');
+      const pathOnly = queryIndex === -1 ? url : url.slice(0, queryIndex);
+      const query = queryIndex === -1 ? '' : url.slice(queryIndex);
+      if (pathOnly === '/api' || pathOnly.startsWith('/api/')) {
+        next();
+        return;
+      }
+      req.url = `/api${pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`}${query}`;
+      next();
+    });
+  }
 
   app.use(express.json({ limit: '25mb' }));
   app.use('/uploads', express.static(UPLOADS_DIR));
@@ -278,52 +271,20 @@ async function startServer() {
 
   // --- RUNTIME STATUS & DEVELOPMENT AI_MODE TOGGLE (Phase 2L) ---
   app.get('/api/status', async (_req, res) => {
-    const aiMode = await studioRepository.getAiMode();
-    const geminiCfg = getGeminiConfig();
-    const envAiMode: AIMode =
-      (process.env.AI_MODE || 'mock').toLowerCase() === 'live' ? 'live' : 'mock';
-
-    res.json({
-      aiMode,
-      envAiMode,
-      hasGeminiApiKey: geminiCfg.hasValidKey,
-      imageModel: geminiCfg.imageModel,
-      visionModel: geminiCfg.visionModel,
-      textModel: geminiCfg.textModel,
-    });
+    res.json(buildRuntime());
   });
 
-  app.patch('/api/settings/mode', async (req, res) => {
-    const requested = req.body?.aiMode;
-    if (requested !== 'mock' && requested !== 'live') {
-      res.status(400).json({ error: 'Invalid AI_MODE. Must be "mock" or "live".' });
-      return;
-    }
-    const mode = await studioRepository.setAiMode(requested);
-    const geminiCfg = getGeminiConfig();
-    res.json({
-      aiMode: mode,
-      hasGeminiApiKey: geminiCfg.hasValidKey,
-      imageModel: geminiCfg.imageModel,
-      visionModel: geminiCfg.visionModel,
-      textModel: geminiCfg.textModel,
-    });
+  app.patch('/api/settings/mode', async (_req, res) => {
+    res.json(buildRuntime());
   });
 
   // --- BOOTSTRAP FULL STATE ---
   app.get('/api/bootstrap', async (_req, res) => {
     const state = await studioRepository.getState();
-    const geminiCfg = getGeminiConfig();
     res.json({
       ...state,
-      runtime: {
-        aiMode: state.aiMode,
-        envAiMode: (process.env.AI_MODE || 'mock').toLowerCase() === 'live' ? 'live' : 'mock',
-        hasGeminiApiKey: geminiCfg.hasValidKey,
-        imageModel: geminiCfg.imageModel,
-        visionModel: geminiCfg.visionModel,
-        textModel: geminiCfg.textModel,
-      },
+      aiMode: 'live',
+      runtime: buildRuntime(),
     });
   });
 
@@ -346,7 +307,7 @@ async function startServer() {
       updatedAt: 'Just now',
       productIds: [],
       shootIds: [],
-      coverImageUrl: '/src/assets/images/shoot_emerald_editorial_full_1790442793707.jpg',
+      coverImageUrl: '',
       pages: [],
     };
 
@@ -375,15 +336,32 @@ async function startServer() {
         const projectName =
           sanitizeText(req.body?.projectName, 160) ||
           project?.name ||
-          "Winter Festive '26 — Zardozi Edit";
+          'Untitled Collection';
 
         const files = (req.files as Express.Multer.File[]) || [];
-        const uploadedFiles = files.map((f) => ({
-          originalName: f.originalname,
-          mimeType: f.mimetype,
-          diskPath: f.path,
-          publicUrl: `/uploads/${f.filename}`,
-        }));
+        if (files.length === 0) {
+          res.status(400).json({
+            error: 'Upload a catalogue PDF or garment images. Sample catalogues are no longer available.',
+          });
+          return;
+        }
+
+        const uploadedFiles = [];
+        for (const file of files) {
+          const isPdf =
+            file.mimetype === 'application/pdf' ||
+            file.originalname.toLowerCase().endsWith('.pdf');
+          const mimeType = file.mimetype || (isPdf ? 'application/pdf' : 'image/jpeg');
+          const publicUrl = isPdf
+            ? ''
+            : await storeMediaBuffer(file.buffer, mimeType, 'upload');
+          uploadedFiles.push({
+            originalName: file.originalname,
+            mimeType,
+            buffer: file.buffer,
+            publicUrl,
+          });
+        }
 
         if (!project) {
           project = await studioRepository.createProject({
@@ -391,17 +369,13 @@ async function startServer() {
             name: projectName,
             seasonCode: 'FW26',
             sourceType,
-            sourceFileName:
-              uploadedFiles[0]?.originalName ||
-              sanitizeText(req.body?.fileName, 180) ||
-              'AtelierNoor_Catalogue.pdf',
+            sourceFileName: uploadedFiles[0]?.originalName || 'catalogue-upload',
             status: 'active',
             createdAt: new Date().toISOString().slice(0, 10),
             updatedAt: 'Just now',
             productIds: [],
             shootIds: [],
-            coverImageUrl:
-              '/src/assets/images/shoot_emerald_editorial_full_1790442793707.jpg',
+            coverImageUrl: '',
           });
         }
 
@@ -450,7 +424,7 @@ async function startServer() {
       }
 
       const name = sanitizeText(req.body?.name, 140) || 'Manual Cropped Catalogue Piece';
-      const sku = sanitizeText(req.body?.sku, 40) || `AN-26-${Math.floor(40 + Math.random() * 50)}`;
+      const sku = sanitizeText(req.body?.sku, 40) || `SKU-${Date.now().toString().slice(-6)}`;
       const category = sanitizeText(req.body?.category, 80) || 'Luxury Pret · Manual Crop';
       const fabricDetails =
         sanitizeText(req.body?.fabricDetails, 240) ||
@@ -461,19 +435,15 @@ async function startServer() {
       // If client sent a base64 cropped canvas data URL, save it to /uploads/
       if (imageUrl.startsWith('data:image/')) {
         const match = imageUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
-        if (match) {
-          const ext = match[1].includes('png') ? 'png' : 'jpg';
-          const fileName = `manual-crop-${Date.now()}.${ext}`;
-          fs.writeFileSync(
-            path.join(UPLOADS_DIR, fileName),
-            Buffer.from(match[2], 'base64')
-          );
-          imageUrl = `/uploads/${fileName}`;
+        if (!match) {
+          res.status(400).json({ error: 'Cropped garment image could not be read.' });
+          return;
         }
+        const mime = match[1].includes('png') ? 'image/png' : 'image/jpeg';
+        imageUrl = await storeMediaBuffer(Buffer.from(match[2], 'base64'), mime, 'manual-crop');
       } else if (!imageUrl) {
-        imageUrl =
-          project.pages?.[0]?.imageUrl ||
-          '/src/assets/images/garment_emerald_zari_flatlay_1790442774795.jpg';
+        res.status(400).json({ error: 'A cropped garment image is required.' });
+        return;
       }
 
       const newProduct: CatalogueProduct = {
@@ -683,9 +653,6 @@ async function startServer() {
       return;
     }
 
-    // Kick off asynchronous multi-shot generation pipeline and immediately return queued/running shoot
-    executeShootPipelineAsync(shootId);
-
     res.json({
       message: 'Shoot generation started.',
       shoot,
@@ -694,7 +661,7 @@ async function startServer() {
 
   app.get('/api/shoots/:id', async (req, res) => {
     const shootId = sanitizeText(req.params.id, 80);
-    const shoot = await studioRepository.getShoot(shootId);
+    const shoot = await advanceShootOneStep(shootId);
     if (!shoot) {
       res.status(404).json({ error: 'Shoot not found.' });
       return;
@@ -767,10 +734,6 @@ async function startServer() {
         product.garmentAnalysis ||
         (await analyzeProductGarmentServer(product, aiMode));
 
-      if (aiMode === 'mock') {
-        await new Promise((r) => setTimeout(r, 650));
-      }
-
       const regenResult = await generateFashionShotServer({
         product,
         analysis,
@@ -781,21 +744,6 @@ async function startServer() {
         customPromptOverride: customPrompt || existingImage.promptNotes,
       });
 
-      const variants: GeneratedShootImage['cropVariant'][] = [
-        'full',
-        'three-quarter',
-        'detail',
-        'angle',
-        'walking',
-      ];
-      const nextCropVariant =
-        aiMode === 'mock'
-          ? variants[
-              (variants.indexOf(existingImage.cropVariant || 'full') + 1) %
-                variants.length
-            ]
-          : 'full';
-
       const updated = await studioRepository.updateGeneratedImage(imageId, {
         imageUrl: regenResult.imageUrl,
         shotType: nextShotType,
@@ -803,7 +751,7 @@ async function startServer() {
         background: nextBackground,
         promptNotes: regenResult.promptNotes,
         masterPromptUsed: regenResult.masterPromptUsed,
-        cropVariant: nextCropVariant,
+        cropVariant: regenResult.cropVariant,
         status: 'Refined',
       });
 
@@ -882,9 +830,9 @@ async function startServer() {
 
     const newPost: InstagramPostDraft = {
       id: `post-${Date.now()}`,
-      projectId: sanitizeText(body.projectId, 80) || 'proj-autumn-festive',
-      productId: sanitizeText(body.productId, 80) || 'prod-emerald-01',
-      shootId: sanitizeText(body.shootId, 80) || 'shoot-emerald-01',
+      projectId: sanitizeText(body.projectId, 80),
+      productId: sanitizeText(body.productId, 80),
+      shootId: sanitizeText(body.shootId, 80),
       productTitle:
         sanitizeText(body.productTitle, 160) || 'Editorial Collection Piece',
       shortDescription: shortDesc,
@@ -893,7 +841,7 @@ async function startServer() {
       captionTone: body.captionTone || 'Editorial Storytelling',
       hashtags: Array.isArray(body.hashtags)
         ? body.hashtags.map((h: unknown) => sanitizeText(h, 60)).filter(Boolean)
-        : ['#AtelierNoor'],
+        : [],
       cta: sanitizeText(body.cta, 300),
       aspectRatio: 'Instagram Portrait 4:5',
       carouselImageIds: selectedImages,
@@ -928,8 +876,14 @@ async function startServer() {
     res.json({ deleted: true, id: postId });
   });
 
-  // --- VITE MIDDLEWARE IN DEV / STATIC DIST IN PROD ---
+  return app;
+}
+
+async function startDevServer() {
+  const app = createApp();
+
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -948,4 +902,6 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startDevServer();
+}

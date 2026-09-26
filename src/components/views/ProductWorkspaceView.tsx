@@ -19,7 +19,7 @@ import {
   ShootConfiguration,
   ShotPoseType,
 } from '../../types/studio';
-import { SHOOT_STYLE_PRESETS } from '../../data/mockStudioData';
+import { SHOOT_STYLE_PRESETS } from '../../data/studioDefaults';
 import { FashionImage } from '../common/FashionImage';
 
 interface ProductWorkspaceViewProps {

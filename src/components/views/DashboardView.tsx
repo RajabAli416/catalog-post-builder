@@ -182,6 +182,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {recentImages.length === 0 && (
+            <div className="sm:col-span-2 lg:col-span-4 border border-[#E2DFD7] bg-white p-8">
+              <h3 className="font-editorial text-2xl font-semibold text-[#141413]">
+                No editorial frames yet
+              </h3>
+              <p className="mt-2 text-sm text-[#57554E]">
+                Upload a catalogue or garment photo to generate a real shoot.
+              </p>
+            </div>
+          )}
           {recentImages.map((img) => (
             <article
               key={img.id}
@@ -264,6 +274,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="bg-white border border-[#E2DFD7] divide-y divide-[#E6E4DD]">
+            {projects.length === 0 && (
+              <div className="p-6 text-sm text-[#57554E]">
+                No projects yet. Start with a catalogue PDF or garment photos.
+              </div>
+            )}
             {projects.map((project) => (
               <div
                 key={project.id}
@@ -335,6 +350,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="bg-white border border-[#E2DFD7] divide-y divide-[#E6E4DD]">
+            {products.length === 0 && (
+              <div className="p-6 text-sm text-[#57554E]">
+                No garments extracted yet.
+              </div>
+            )}
             {products.slice(0, 3).map((product) => (
               <div
                 key={product.id}

@@ -14,12 +14,8 @@ import {
   ShootStyleId,
   ShotPoseType,
 } from '../types/studio';
-import {
-  CRIMSON_GARMENT_ANALYSIS,
-  EMERALD_GARMENT_ANALYSIS,
-  IVORY_GARMENT_ANALYSIS,
-} from '../data/mockStudioData';
 import { UPLOADS_DIR } from './repository';
+import { storeMediaBuffer } from './mediaStore';
 
 export function getGeminiConfig() {
   const rawKey = process.env.GEMINI_API_KEY || '';
@@ -43,7 +39,7 @@ function createGeminiClient(): GoogleGenAI {
   const { apiKey, hasValidKey } = getGeminiConfig();
   if (!hasValidKey) {
     throw new Error(
-      'GEMINI_API_KEY is not configured yet. Add GEMINI_API_KEY in Settings > Secrets or switch AI_MODE to "mock" for development.'
+      'GEMINI_API_KEY is not configured. Add it in the Vercel project environment variables, then redeploy.'
     );
   }
   return new GoogleGenAI({
@@ -60,10 +56,14 @@ function createGeminiClient(): GoogleGenAI {
  * Helper to resolve any local asset path (/src/assets/..., /uploads/..., or data URL)
  * into base64 inlineData for multimodal Gemini requests.
  */
-export function resolveImageToBase64(imageUrlOrPath: string): {
+export async function resolveImageToBase64(imageUrlOrPath: string): Promise<{
   data: string;
   mimeType: string;
-} {
+}> {
+  if (!imageUrlOrPath) {
+    throw new Error('This product has no garment reference image to send to Gemini.');
+  }
+
   if (imageUrlOrPath.startsWith('data:')) {
     const match = imageUrlOrPath.match(/^data:([^;]+);base64,(.+)$/);
     if (match) {
@@ -71,35 +71,31 @@ export function resolveImageToBase64(imageUrlOrPath: string): {
     }
   }
 
-  let diskPath = '';
-  if (imageUrlOrPath.startsWith('/uploads/')) {
-    const fileName = path.basename(imageUrlOrPath);
-    diskPath = path.join(UPLOADS_DIR, fileName);
-  } else if (imageUrlOrPath.startsWith('/src/')) {
-    diskPath = path.join(process.cwd(), imageUrlOrPath.replace(/^\//, ''));
-  } else {
-    // Fallback to default emerald garment asset
-    diskPath = path.join(
-      process.cwd(),
-      'src/assets/images/garment_emerald_zari_flatlay_1790442774795.jpg'
-    );
+  if (imageUrlOrPath.startsWith('http://') || imageUrlOrPath.startsWith('https://')) {
+    const response = await fetch(imageUrlOrPath);
+    if (!response.ok) {
+      throw new Error('Could not read the stored garment image.');
+    }
+    const mimeType = (response.headers.get('content-type') || 'image/jpeg').split(';')[0];
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return { data: buffer.toString('base64'), mimeType };
   }
 
-  if (!fs.existsSync(diskPath)) {
-    diskPath = path.join(
-      process.cwd(),
-      'src/assets/images/garment_emerald_zari_flatlay_1790442774795.jpg'
-    );
+  let diskPath = '';
+  if (imageUrlOrPath.startsWith('/uploads/')) {
+    diskPath = path.join(UPLOADS_DIR, path.basename(imageUrlOrPath));
+  } else if (imageUrlOrPath.startsWith('/src/')) {
+    diskPath = path.join(process.cwd(), imageUrlOrPath.replace(/^\//, ''));
+  }
+
+  if (!diskPath || !fs.existsSync(diskPath)) {
+    throw new Error('Garment reference image is missing from storage.');
   }
 
   const buffer = fs.readFileSync(diskPath);
   const ext = path.extname(diskPath).toLowerCase();
   const mimeType =
-    ext === '.png'
-      ? 'image/png'
-      : ext === '.webp'
-      ? 'image/webp'
-      : 'image/jpeg';
+    ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
 
   return {
     data: buffer.toString('base64'),
@@ -111,7 +107,7 @@ export function resolveImageToBase64(imageUrlOrPath: string): {
  * Extracts embedded JPEG streams from a raw PDF buffer if present (up to 6 images)
  * so real uploaded lookbook PDFs can surface embedded garment plates on the server.
  */
-export function extractEmbeddedJpegsFromPdfBuffer(pdfBuffer: Buffer): string[] {
+export async function extractEmbeddedJpegsFromPdfBuffer(pdfBuffer: Buffer): Promise<string[]> {
   const savedUrls: string[] = [];
   const soi = Buffer.from([0xff, 0xd8, 0xff]);
   const eoi = Buffer.from([0xff, 0xd9]);
@@ -124,13 +120,10 @@ export function extractEmbeddedJpegsFromPdfBuffer(pdfBuffer: Buffer): string[] {
     if (end === -1) break;
 
     const length = end + 2 - start;
-    // Filter out tiny thumbnails (< 12KB) so we only keep real garment plates
     if (length > 12 * 1024 && length < 12 * 1024 * 1024) {
       const jpgBuf = pdfBuffer.subarray(start, end + 2);
-      const fileName = `pdf-extract-${Date.now()}-${savedUrls.length + 1}.jpg`;
-      const outPath = path.join(UPLOADS_DIR, fileName);
-      fs.writeFileSync(outPath, jpgBuf);
-      savedUrls.push(`/uploads/${fileName}`);
+      const url = await storeMediaBuffer(Buffer.from(jpgBuf), 'image/jpeg', 'pdf-plate');
+      savedUrls.push(url);
     }
     offset = end + 2;
   }
@@ -148,7 +141,7 @@ export async function extractCatalogueProductsServer(params: {
   uploadedFiles: Array<{
     originalName: string;
     mimeType: string;
-    diskPath: string;
+    buffer?: Buffer;
     publicUrl: string;
   }>;
   aiMode: AIMode;
@@ -156,31 +149,25 @@ export async function extractCatalogueProductsServer(params: {
   products: CatalogueProduct[];
   pages: CataloguePagePlate[];
 }> {
-  const { projectId, sourceType, uploadedFiles, aiMode } = params;
+  const { projectId, sourceType, uploadedFiles } = params;
   const today = new Date().toISOString().slice(0, 10);
 
-  const defaultAssets = [
-    '/src/assets/images/garment_emerald_zari_flatlay_1790442774795.jpg',
-    '/src/assets/images/garment_ivory_organza_flatlay_1790442824991.jpg',
-    '/src/assets/images/shoot_crimson_festive_walking_1790442854767.jpg',
-  ];
-
-  // If user uploaded individual garment images, create a Product record for each uploaded image
   const imageFiles = uploadedFiles.filter((f) => f.mimeType.startsWith('image/'));
-  const pdfFile = uploadedFiles.find((f) => f.mimeType === 'application/pdf' || f.originalName.toLowerCase().endsWith('.pdf'));
+  const pdfFile = uploadedFiles.find(
+    (f) => f.mimeType === 'application/pdf' || f.originalName.toLowerCase().endsWith('.pdf')
+  );
 
-  let extractedPlateUrls: string[] = imageFiles.map((f) => f.publicUrl);
+  let extractedPlateUrls: string[] = imageFiles.map((f) => f.publicUrl).filter(Boolean);
 
-  if (pdfFile && fs.existsSync(pdfFile.diskPath)) {
-    const pdfBuffer = fs.readFileSync(pdfFile.diskPath);
-    const embeddedJpegs = extractEmbeddedJpegsFromPdfBuffer(pdfBuffer);
+  const pdfBuffer = pdfFile?.buffer;
+  if (pdfBuffer && pdfBuffer.length > 0) {
+    const embeddedJpegs = await extractEmbeddedJpegsFromPdfBuffer(pdfBuffer);
     if (embeddedJpegs.length > 0) {
       extractedPlateUrls = [...extractedPlateUrls, ...embeddedJpegs];
     }
 
-    // In LIVE mode with a valid key, ask Gemini multimodal to identify distinct products in the PDF
-    const { hasValidKey, visionModel } = getGeminiConfig();
-    if (aiMode === 'live' && hasValidKey && pdfBuffer.length < 18 * 1024 * 1024) {
+    const { visionModel } = getGeminiConfig();
+    if (pdfBuffer.length < 18 * 1024 * 1024) {
       try {
         const ai = createGeminiClient();
         const response = await ai.models.generateContent({
@@ -222,10 +209,14 @@ Return a JSON array of detected garments with sku, name, category, fabricDetails
 
         const parsed = JSON.parse(response.text || '[]');
         if (Array.isArray(parsed) && parsed.length > 0) {
+          if (extractedPlateUrls.length === 0) {
+            throw new Error(
+              'Gemini found garments, but this PDF has no embedded photos to use as references. Upload garment images instead.'
+            );
+          }
           const products: CatalogueProduct[] = parsed.map((item, idx) => {
             const imgUrl =
-              extractedPlateUrls[idx % Math.max(1, extractedPlateUrls.length)] ||
-              defaultAssets[idx % defaultAssets.length];
+              extractedPlateUrls[idx % Math.max(1, extractedPlateUrls.length)] || '';
             const pageNum = Number(item.sourcePage) || idx + 1;
             return {
               id: `prod-${Date.now()}-${idx + 1}`,
@@ -240,7 +231,7 @@ Return a JSON array of detected garments with sku, name, category, fabricDetails
               sourcePage: pageNum,
               detectedPage: pageNum,
               garmentAnalysis: null,
-              selected: idx < 2,
+              selected: true,
               createdAt: today,
               generatedCount: 0,
             };
@@ -262,14 +253,19 @@ Return a JSON array of detected garments with sku, name, category, fabricDetails
 
           return { products, pages };
         }
+        throw new Error('No garments were detected in this catalogue PDF.');
       } catch (err) {
-        console.warn('Gemini PDF extraction fallback triggered:', err);
+        const message =
+          err instanceof Error ? err.message : 'Gemini could not read this catalogue PDF.';
+        throw new Error(message);
       }
+    } else {
+      throw new Error('Catalogue PDF is larger than 18MB. Upload a smaller file.');
     }
   }
 
   // If user uploaded individual garment images, build products directly from those uploaded files
-  if (imageFiles.length > 0 && sourceType === 'Garment Images') {
+  if (imageFiles.length > 0) {
     const products: CatalogueProduct[] = imageFiles.map((file, idx) => {
       const cleanBase = path
         .basename(file.originalName, path.extname(file.originalName))
@@ -302,104 +298,11 @@ Return a JSON array of detected garments with sku, name, category, fabricDetails
     return { products, pages };
   }
 
-  // Default structured catalogue extraction (uses embedded PDF plates if found, else studio plates)
-  const plate1 = extractedPlateUrls[0] || defaultAssets[0];
-  const plate2 = extractedPlateUrls[1] || defaultAssets[1];
-  const plate3 = extractedPlateUrls[2] || defaultAssets[2];
-
-  const products: CatalogueProduct[] = [
-    {
-      id: `prod-${Date.now()}-1`,
-      projectId,
-      sku: 'AN-26-031',
-      name: 'Zardozi Emerald Raw Silk Kurta Set',
-      category: 'Luxury Pret · 2-Piece',
-      fabricDetails: '100% Pure Korean Raw Silk · Antique Gold Tilla & Zardozi Embroidery',
-      rawCatalogueText:
-        'SKU AN-26-031. EMERALD GREEN RAW SILK STRAIGHT SHIRT WITH GOLD ZARDOZI NECKLINE AND CUFFS. CULOTTE TROUSERS INCLUDED.',
-      garmentImageUrl: plate1,
-      referenceImage: plate1,
-      sourcePage: 1,
-      detectedPage: 1,
-      garmentAnalysis: EMERALD_GARMENT_ANALYSIS,
-      selected: true,
-      createdAt: today,
-      generatedCount: 0,
-    },
-    {
-      id: `prod-${Date.now()}-2`,
-      projectId,
-      sku: 'AN-26-034',
-      name: 'Chandi Ivory Silk Organza Peshwas',
-      category: 'Formal Edit · 3-Piece',
-      fabricDetails: 'Pure Woven Silk Organza · Hand-Worked Silver Resham & Freshwater Pearls',
-      rawCatalogueText:
-        'SKU AN-26-034. IVORY SHEER ORGANZA EMBROIDERED LONG TUNIC WITH SILVER THREADWORK AND PEARL DETAILING.',
-      garmentImageUrl: plate2,
-      referenceImage: plate2,
-      sourcePage: 2,
-      detectedPage: 2,
-      garmentAnalysis: IVORY_GARMENT_ANALYSIS,
-      selected: true,
-      createdAt: today,
-      generatedCount: 0,
-    },
-    {
-      id: `prod-${Date.now()}-3`,
-      projectId,
-      sku: 'AN-26-038',
-      name: 'Gulnar Crimson Matka Silk Kaftan',
-      category: 'Festive Resort · 1-Piece',
-      fabricDetails: 'Heavyweight Matka Silk · Antique Gold Marori Border Work',
-      rawCatalogueText:
-        'SKU AN-26-038. DEEP CRIMSON MATKA SILK KAFTAN WITH ARTISANAL MARORI EMBROIDERY ON V-NECKLINE.',
-      garmentImageUrl: plate3,
-      referenceImage: plate3,
-      sourcePage: 2, // Notice page 2 has two items detected (not blindly 1 page = 1 product)
-      detectedPage: 2,
-      garmentAnalysis: CRIMSON_GARMENT_ANALYSIS,
-      selected: false,
-      createdAt: today,
-      generatedCount: 0,
-    },
-  ];
-
-  const pages: CataloguePagePlate[] = [
-    {
-      pageNumber: 1,
-      imageUrl: plate1,
-      label: 'Catalogue Page 01 — Lookbook Plate A (1 Garment Detected)',
-      detectedRegions: [
-        {
-          id: 'reg-p1-1',
-          label: 'Zardozi Emerald Raw Silk Kurta Set',
-          sku: 'AN-26-031',
-          cropBox: { x: 10, y: 8, width: 80, height: 84 },
-        },
-      ],
-    },
-    {
-      pageNumber: 2,
-      imageUrl: plate2,
-      label: 'Catalogue Page 02 — Dual Garment Spread (2 Garments Detected)',
-      detectedRegions: [
-        {
-          id: 'reg-p2-1',
-          label: 'Chandi Ivory Silk Organza Peshwas',
-          sku: 'AN-26-034',
-          cropBox: { x: 6, y: 10, width: 44, height: 82 },
-        },
-        {
-          id: 'reg-p2-2',
-          label: 'Gulnar Crimson Matka Silk Kaftan',
-          sku: 'AN-26-038',
-          cropBox: { x: 52, y: 10, width: 42, height: 82 },
-        },
-      ],
-    },
-  ];
-
-  return { products, pages };
+  throw new Error(
+    sourceType === 'Catalogue PDF'
+      ? 'Upload a catalogue PDF or garment images. Sample catalogues are no longer available.'
+      : 'Upload at least one garment image.'
+  );
 }
 
 /**
@@ -411,33 +314,10 @@ export async function analyzeProductGarmentServer(
   product: CatalogueProduct,
   aiMode: AIMode
 ): Promise<GarmentAnalysis> {
-  if (aiMode === 'mock') {
-    const nameLower = product.name.toLowerCase();
-    if (nameLower.includes('ivory') || nameLower.includes('organza')) {
-      return {
-        ...IVORY_GARMENT_ANALYSIS,
-        analyzedAt: new Date().toISOString(),
-        modeUsed: 'mock',
-      };
-    }
-    if (nameLower.includes('crimson') || nameLower.includes('kaftan')) {
-      return {
-        ...CRIMSON_GARMENT_ANALYSIS,
-        analyzedAt: new Date().toISOString(),
-        modeUsed: 'mock',
-      };
-    }
-    return {
-      ...EMERALD_GARMENT_ANALYSIS,
-      analyzedAt: new Date().toISOString(),
-      modeUsed: 'mock',
-    };
-  }
-
-  // LIVE MODE: Call Gemini Vision with the reference garment image
+  void aiMode;
   const ai = createGeminiClient();
   const { visionModel } = getGeminiConfig();
-  const { data: base64Image, mimeType } = resolveImageToBase64(
+  const { data: base64Image, mimeType } = await resolveImageToBase64(
     product.referenceImage || product.garmentImageUrl
   );
 
@@ -667,54 +547,6 @@ function mapAspectRatioToGeminiConfig(
   return '3:4';
 }
 
-function resolveMockImageForShot(
-  product: CatalogueProduct,
-  shotType: ShotPoseType,
-  index: number
-): { imageUrl: string; cropVariant: GeneratedShootImage['cropVariant'] } {
-  const nameLower = product.name.toLowerCase();
-  const isIvory = nameLower.includes('ivory') || nameLower.includes('organza');
-  const isCrimson = nameLower.includes('crimson') || nameLower.includes('kaftan');
-
-  if (isIvory) {
-    return {
-      imageUrl: '/src/assets/images/shoot_ivory_studio_editorial_1790442838099.jpg',
-      cropVariant:
-        shotType === 'Detail portrait'
-          ? 'detail'
-          : shotType === '3/4 standing'
-          ? 'three-quarter'
-          : shotType === 'Seated'
-          ? 'seated'
-          : 'full',
-    };
-  }
-
-  if (isCrimson) {
-    return {
-      imageUrl: '/src/assets/images/shoot_crimson_festive_walking_1790442854767.jpg',
-      cropVariant:
-        shotType === 'Detail portrait'
-          ? 'detail'
-          : shotType === '3/4 standing'
-          ? 'three-quarter'
-          : 'walking',
-    };
-  }
-
-  if (shotType === 'Detail portrait' || shotType === 'Back/side angle' || index % 2 === 1) {
-    return {
-      imageUrl: '/src/assets/images/shoot_emerald_detail_portrait_1790442810047.jpg',
-      cropVariant: shotType === 'Back/side angle' ? 'angle' : 'detail',
-    };
-  }
-
-  return {
-    imageUrl: '/src/assets/images/shoot_emerald_editorial_full_1790442793707.jpg',
-    cropVariant: shotType === '3/4 standing' ? 'three-quarter' : 'full',
-  };
-}
-
 /**
  * PHASE 2D & 2E — SINGLE SHOT GEMINI IMAGE GENERATION
  * Each shot in a multi-shot shoot invokes this function separately with the original
@@ -756,20 +588,10 @@ export async function generateFashionShotServer(params: {
     customPromptOverride ||
     `${shotType} framing in ${config.background.toLowerCase()} setting · ${config.shootStyle} lighting · ${config.model.skinComplexion} complexion, ${config.model.hairStyling.toLowerCase()} · Preserving ${analysis.embroidery.toLowerCase()}.`;
 
-  if (aiMode === 'mock') {
-    const mockResult = resolveMockImageForShot(product, shotType, shotIndex);
-    return {
-      imageUrl: mockResult.imageUrl,
-      promptNotes: conciseNotes,
-      masterPromptUsed: masterPrompt,
-      cropVariant: mockResult.cropVariant,
-    };
-  }
-
-  // LIVE MODE: Send original garment reference image + Master Instruction to Gemini Image Generation model
+  void aiMode;
   const ai = createGeminiClient();
   const { imageModel } = getGeminiConfig();
-  const garmentSource = resolveImageToBase64(
+  const garmentSource = await resolveImageToBase64(
     product.referenceImage || product.garmentImageUrl
   );
 
@@ -815,13 +637,14 @@ export async function generateFashionShotServer(params: {
     );
   }
 
-  const ext = generatedMime.includes('jpeg') || generatedMime.includes('jpg') ? 'jpg' : 'png';
-  const fileName = `gemini-shoot-${Date.now()}-${shotIndex + 1}.${ext}`;
-  const filePath = path.join(UPLOADS_DIR, fileName);
-  fs.writeFileSync(filePath, Buffer.from(generatedBase64, 'base64'));
+  const imageUrl = await storeMediaBuffer(
+    Buffer.from(generatedBase64, 'base64'),
+    generatedMime,
+    `gemini-shoot-${shotIndex + 1}`
+  );
 
   return {
-    imageUrl: `/uploads/${fileName}`,
+    imageUrl,
     promptNotes: conciseNotes,
     masterPromptUsed: masterPrompt,
     cropVariant: 'full',
@@ -845,11 +668,11 @@ export async function generateInstagramCopyServer(params: {
   hashtags: string[];
   cta: string;
 }> {
-  const { product, tone, style, aiMode } = params;
+  const { product, tone, style } = params;
+  void params.aiMode;
 
-  if (aiMode === 'live' && getGeminiConfig().hasValidKey) {
-    try {
-      const ai = createGeminiClient();
+  try {
+    const ai = createGeminiClient();
       const { textModel } = getGeminiConfig();
       const analysisSummary = product.garmentAnalysis
         ? JSON.stringify(product.garmentAnalysis)
@@ -891,49 +714,9 @@ Visual Analysis: ${analysisSummary}`,
         };
       }
     } catch (err) {
-      console.warn('Falling back to local editorial copy generator:', err);
+      const message = err instanceof Error ? err.message : 'Failed to generate Instagram copy.';
+      throw new Error(message);
     }
-  }
 
-  // Mock / Fallback original copy generation
-  const isIvory = product.name.toLowerCase().includes('ivory');
-  const isCrimson = product.name.toLowerCase().includes('crimson');
-
-  const cleanTitle = isIvory
-    ? 'The Chandi Ivory Organza Ensemble'
-    : isCrimson
-    ? 'The Gulnar Crimson Silk Kaftan'
-    : `The ${product.name.replace(/Set$/i, 'Edit')}`;
-
-  const shortDescription = isIvory
-    ? 'Weightless woven silk organza illuminated with hand-embroidered silver resham florals and delicate freshwater pearl accents.'
-    : isCrimson
-    ? 'Fluid crimson matka silk tailored in a relaxed resort kaftan silhouette with artisanal antique gold marori borders.'
-    : 'Architectural raw silk tailoring in deep forest emerald, finished with heirloom gold tilla and zardozi work at the neckline and cuffs.';
-
-  const captionsByTone: Record<InstagramPostDraft['captionTone'], string> = {
-    'Editorial Storytelling': `Light, shadow, and the quiet permanence of handcraft.\n\nReimagined for our ${style} story, ${cleanTitle} pairs architectural drape with intricate South Asian surface artistry. Every metallic thread is placed to catch natural twilight without overwhelming the silhouette—crafted for women who collect pieces with lasting presence.`,
-    'Minimalist Luxury': `${cleanTitle}.\n\nPure textile integrity meets restrained embellishment. Tailored for an effortless fall and finished by hand in our studio, designed to transition seamlessly from sunlit courtyard gatherings to formal evening receptions.`,
-    'Festive Heritage': `Celebrating timeless South Asian craft in a contemporary frame.\n\n${cleanTitle} honors classical zardozi and resham techniques on luminous woven silk—bringing warmth, poise, and heirloom grace to the festive season.`,
-    'Boutique Launch': `New in Studio — ${cleanTitle}.\n\nOur latest limited-edition release is now open for orders. Thoughtfully proportioned for movement and photographed in our ${style.toLowerCase()} campaign setting.`,
-  };
-
-  const baseHashtags = [
-    '#AtelierNoor',
-    '#PakistaniFashionEditorial',
-    '#SouthAsianLuxury',
-    '#ModernHeirloom',
-    '#LuxuryPretPakistan',
-    '#ArtisanalEmbroidery',
-    '#EditorialLookbook',
-    isIvory ? '#OrganzaCouture' : isCrimson ? '#SilkKaftanEdit' : '#RawSilkZardozi',
-  ];
-
-  return {
-    productTitle: cleanTitle,
-    shortDescription,
-    caption: captionsByTone[tone],
-    hashtags: baseHashtags,
-    cta: 'Explore bespoke & standard sizing via the link in bio, or message our studio concierge.',
-  };
+  throw new Error('Gemini did not return Instagram copy.');
 }

@@ -1,38 +1,23 @@
 import React, { useState } from 'react';
 import { Check, Cpu, Sliders } from 'lucide-react';
-import { AIMode, StudioRuntimeStatus } from '../../types/studio';
+import { StudioRuntimeStatus } from '../../types/studio';
 
 interface SettingsViewProps {
   runtimeStatus?: StudioRuntimeStatus | null;
-  onToggleAIMode?: (mode: AIMode) => Promise<void>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   runtimeStatus,
-  onToggleAIMode,
 }) => {
   const [studioHandle, setStudioHandle] = useState('@ateliernoor.official');
   const [defaultRegion, setDefaultRegion] = useState('Pakistani / South Asian');
   const [colorProfile, setColorProfile] = useState('Display P3 · 4:5 Lossless JPEG');
   const [saved, setSaved] = useState(false);
-  const [switchingMode, setSwitchingMode] = useState(false);
-
-  const currentMode: AIMode = runtimeStatus?.aiMode || 'mock';
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
-  };
-
-  const handleModeSwitch = async (mode: AIMode) => {
-    if (!onToggleAIMode || mode === currentMode) return;
-    setSwitchingMode(true);
-    try {
-      await onToggleAIMode(mode);
-    } finally {
-      setSwitchingMode(false);
-    }
   };
 
   return (
@@ -51,71 +36,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </p>
       </div>
 
-      {/* Phase 2K: AI Engine Mode Switcher (Mock / Demo Mode vs Gemini Live Mode) */}
       <div className="bg-white border border-[#E2DFD7] p-6 md:p-8 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E6E4DD] pb-4">
           <div className="flex items-center gap-2">
             <Cpu className="w-4 h-4 text-[#141413]" />
             <h2 className="font-editorial text-2xl font-semibold text-[#141413]">
-              Gemini Pipeline Runtime Mode
+              Gemini Pipeline
             </h2>
           </div>
           <span className="font-mono text-xs text-[#57554E]">
-            AI_MODE={currentMode}
+            LIVE
           </span>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            type="button"
-            disabled={switchingMode}
-            onClick={() => handleModeSwitch('mock')}
-            className={`p-4 text-left border transition-colors ${
-              currentMode === 'mock'
-                ? 'bg-[#141413] text-white border-[#141413]'
-                : 'bg-[#FAF9F5] text-[#141413] border-[#E2DFD7] hover:border-[#78756C]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold">
-                MODE 1 — MOCK / DEMO MODE
-              </span>
-              {currentMode === 'mock' && <Check className="w-3.5 h-3.5" />}
-            </div>
-            <p
-              className={`mt-1.5 text-xs leading-relaxed ${
-                currentMode === 'mock' ? 'text-[#D6D3C9]' : 'text-[#6E6B62]'
-              }`}
-            >
-              Uses curated high-res editorial garment plates and deterministic structured garment analysis when Gemini API credits are not being tested.
-            </p>
-          </button>
-
-          <button
-            type="button"
-            disabled={switchingMode}
-            onClick={() => handleModeSwitch('live')}
-            className={`p-4 text-left border transition-colors ${
-              currentMode === 'live'
-                ? 'bg-[#141413] text-white border-[#141413]'
-                : 'bg-[#FAF9F5] text-[#141413] border-[#E2DFD7] hover:border-[#78756C]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold">
-                MODE 2 — GEMINI LIVE MODE
-              </span>
-              {currentMode === 'live' && <Check className="w-3.5 h-3.5" />}
-            </div>
-            <p
-              className={`mt-1.5 text-xs leading-relaxed ${
-                currentMode === 'live' ? 'text-[#D6D3C9]' : 'text-[#6E6B62]'
-              }`}
-            >
-              Executes real server-side Gemini Vision garment inspection, multi-shot image generation with garment reference preservation, and original Instagram copy.
-            </p>
-          </button>
-        </div>
+        <p className="text-sm text-[#57554E] leading-relaxed">
+          Catalogue reading, garment analysis, editorial frames, and Instagram copy all run through Gemini. There is no demo mode.
+        </p>
 
         <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs border-t border-[#E6E4DD]">
           <div>

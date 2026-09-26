@@ -171,6 +171,7 @@ export interface StudioShoot {
   aspectRatio: AspectRatioType; // Phase 2A
   status: GenerationStageStatus; // Phase 2A
   errorMessage?: string;
+  pipelineBusyUntil?: number;
   jobs: ShootShotJob[];
   config: ShootConfiguration;
   images: GeneratedShootImage[];
@@ -220,4 +221,5 @@ export interface StudioRuntimeStatus {
   imageModel: string;
   visionModel: string;
   textModel: string;
+  storageMode: 'vercel-blob' | 'local-disk' | 'ephemeral';
 }
