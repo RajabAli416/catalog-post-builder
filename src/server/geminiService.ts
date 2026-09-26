@@ -53,11 +53,37 @@ function createGeminiClient(): GoogleGenAI {
 }
 
 const TEXT_MODEL_FALLBACKS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
-const IMAGE_MODEL_FALLBACKS = ['gemini-3.1-flash-lite-image'];
 
-function isCapacityError(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err);
-  return /503|429|UNAVAILABLE|high demand|RESOURCE_EXHAUSTED|overloaded/i.test(message);
+function geminiErrorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function isZeroFreeTierQuota(err: unknown): boolean {
+  const message = geminiErrorText(err);
+  return /free_tier/i.test(message) && /limit:\s*0/.test(message);
+}
+
+function isTemporaryCapacityError(err: unknown): boolean {
+  if (isZeroFreeTierQuota(err)) return false;
+  return /503|UNAVAILABLE|high demand|overloaded/i.test(geminiErrorText(err));
+}
+
+function toUserFacingGeminiError(err: unknown): Error {
+  if (isZeroFreeTierQuota(err)) {
+    const imageModel = /image/i.test(geminiErrorText(err));
+    return new Error(
+      imageModel
+        ? 'Image generation is not included on the free Gemini plan. In Google AI Studio, open the project for this API key and turn on billing, then retry the shoot.'
+        : 'This Gemini model is not included on the free plan. In Google AI Studio, turn on billing for this API key, then try again.'
+    );
+  }
+  if (isTemporaryCapacityError(err)) {
+    return new Error('Gemini is busy right now. Wait about a minute, then retry the shoot.');
+  }
+  if (/429|RESOURCE_EXHAUSTED|quota exceeded/i.test(geminiErrorText(err))) {
+    return new Error('Gemini rate limit reached. Wait about a minute, then retry the shoot.');
+  }
+  return err instanceof Error ? err : new Error('Gemini request failed.');
 }
 
 async function generateContentWithFallback(
@@ -72,26 +98,27 @@ async function generateContentWithFallback(
   const models = [primaryModel, ...fallbacks.filter((model) => model !== primaryModel)];
   let lastError: unknown;
 
-  for (const model of models) {
-    try {
-      return await ai.models.generateContent({
-        model,
-        contents: request.contents,
-        config: request.config,
-      });
-    } catch (err) {
-      lastError = err;
-      if (!isCapacityError(err)) throw err;
+  for (let index = 0; index < models.length; index += 1) {
+    const model = models[index];
+    const attempts = index === 0 ? 2 : 1;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        return await ai.models.generateContent({
+          model,
+          contents: request.contents,
+          config: request.config,
+        });
+      } catch (err) {
+        lastError = err;
+        if (!isTemporaryCapacityError(err)) throw toUserFacingGeminiError(err);
+        if (attempt === 0 && attempts > 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
     }
   }
 
-  const detail = lastError instanceof Error ? lastError.message : '';
-  if (/high demand|UNAVAILABLE|503/i.test(detail)) {
-    throw new Error(
-      'Gemini is busy right now. Wait about a minute, then try again. The studio already switched to a backup model and that was busy too.'
-    );
-  }
-  throw lastError instanceof Error ? lastError : new Error('Gemini request failed.');
+  throw toUserFacingGeminiError(lastError);
 }
 
 /**
@@ -650,7 +677,7 @@ export async function generateFashionShotServer(params: {
     product.referenceImage || product.garmentImageUrl
   );
 
-  const response = await generateContentWithFallback(ai, imageModel, IMAGE_MODEL_FALLBACKS, {
+  const response = await generateContentWithFallback(ai, imageModel, [], {
     contents: {
       parts: [
         {
