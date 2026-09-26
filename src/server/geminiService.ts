@@ -81,6 +81,21 @@ export async function resolveImageToBase64(imageUrlOrPath: string): Promise<{
     return { data: buffer.toString('base64'), mimeType };
   }
 
+  if (imageUrlOrPath.startsWith('/api/media/')) {
+    const pathname = decodeURIComponent(imageUrlOrPath.slice('/api/media/'.length));
+    if (!pathname.startsWith('media/') || pathname.includes('..')) {
+      throw new Error('Garment reference image is missing from storage.');
+    }
+    const { get } = await import('@vercel/blob');
+    const result = await get(pathname, { access: 'private' });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      throw new Error('Garment reference image is missing from storage.');
+    }
+    const mimeType = (result.blob.contentType || 'image/jpeg').split(';')[0];
+    const buffer = Buffer.from(await new Response(result.stream).arrayBuffer());
+    return { data: buffer.toString('base64'), mimeType };
+  }
+
   let diskPath = '';
   if (imageUrlOrPath.startsWith('/uploads/')) {
     diskPath = path.join(UPLOADS_DIR, path.basename(imageUrlOrPath));

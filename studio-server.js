@@ -323,12 +323,13 @@ async function storeMediaBuffer(buffer, mimeType, prefix) {
   const fileName = `${prefix}-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
   if (mode === "vercel-blob") {
     const { put } = await import("@vercel/blob");
-    const blob = await put(`media/${fileName}`, buffer, {
-      access: "public",
+    const pathname = `media/${fileName}`;
+    await put(pathname, buffer, {
+      access: "private",
       addRandomSuffix: false,
       contentType: mimeType
     });
-    return blob.url;
+    return `/api/media/${pathname}`;
   }
   if (mode === "ephemeral") {
     throw new Error(
@@ -390,6 +391,20 @@ async function resolveImageToBase64(imageUrlOrPath) {
     }
     const mimeType2 = (response.headers.get("content-type") || "image/jpeg").split(";")[0];
     const buffer2 = Buffer.from(await response.arrayBuffer());
+    return { data: buffer2.toString("base64"), mimeType: mimeType2 };
+  }
+  if (imageUrlOrPath.startsWith("/api/media/")) {
+    const pathname = decodeURIComponent(imageUrlOrPath.slice("/api/media/".length));
+    if (!pathname.startsWith("media/") || pathname.includes("..")) {
+      throw new Error("Garment reference image is missing from storage.");
+    }
+    const { get } = await import("@vercel/blob");
+    const result = await get(pathname, { access: "private" });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      throw new Error("Garment reference image is missing from storage.");
+    }
+    const mimeType2 = (result.blob.contentType || "image/jpeg").split(";")[0];
+    const buffer2 = Buffer.from(await new Response(result.stream).arrayBuffer());
     return { data: buffer2.toString("base64"), mimeType: mimeType2 };
   }
   let diskPath = "";
@@ -1583,6 +1598,30 @@ function createApp() {
       return;
     }
     res.json({ deleted: true, id: postId });
+  });
+  app.get(/^\/api\/media\/(.+)$/, async (req, res) => {
+    let pathname = "";
+    try {
+      pathname = decodeURIComponent(req.params[0] || "");
+    } catch {
+      res.status(400).json({ error: "Invalid media path." });
+      return;
+    }
+    if (!pathname.startsWith("media/") || pathname.includes("..") || pathname.includes("\\")) {
+      res.status(400).json({ error: "Invalid media path." });
+      return;
+    }
+    const { get } = await import("@vercel/blob");
+    const result = await get(pathname, { access: "private" });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      res.status(404).json({ error: "Media not found." });
+      return;
+    }
+    res.setHeader("Content-Type", result.blob.contentType || "application/octet-stream");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    const bytes = Buffer.from(await new Response(result.stream).arrayBuffer());
+    res.end(bytes);
   });
   app.use("/api", (req, res) => {
     res.status(404).json({ error: "Unknown API route.", path: req.originalUrl });

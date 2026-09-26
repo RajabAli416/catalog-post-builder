@@ -21,12 +21,13 @@ export async function storeMediaBuffer(
 
   if (mode === 'vercel-blob') {
     const { put } = await import('@vercel/blob');
-    const blob = await put(`media/${fileName}`, buffer, {
-      access: 'public',
+    const pathname = `media/${fileName}`;
+    await put(pathname, buffer, {
+      access: 'private',
       addRandomSuffix: false,
       contentType: mimeType,
     });
-    return blob.url;
+    return `/api/media/${pathname}`;
   }
 
   if (mode === 'ephemeral') {

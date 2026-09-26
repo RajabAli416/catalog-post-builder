@@ -876,6 +876,31 @@ export function createApp() {
     res.json({ deleted: true, id: postId });
   });
 
+  app.get(/^\/api\/media\/(.+)$/, async (req, res) => {
+    let pathname = '';
+    try {
+      pathname = decodeURIComponent(req.params[0] || '');
+    } catch {
+      res.status(400).json({ error: 'Invalid media path.' });
+      return;
+    }
+    if (!pathname.startsWith('media/') || pathname.includes('..') || pathname.includes('\\')) {
+      res.status(400).json({ error: 'Invalid media path.' });
+      return;
+    }
+    const { get } = await import('@vercel/blob');
+    const result = await get(pathname, { access: 'private' });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      res.status(404).json({ error: 'Media not found.' });
+      return;
+    }
+    res.setHeader('Content-Type', result.blob.contentType || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    const bytes = Buffer.from(await new Response(result.stream).arrayBuffer());
+    res.end(bytes);
+  });
+
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Unknown API route.', path: req.originalUrl });
   });
