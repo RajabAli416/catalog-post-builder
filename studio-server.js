@@ -10,11 +10,34 @@ import path2 from "path";
 // src/server/stateStore.ts
 import fs from "fs";
 import path from "path";
+
+// src/server/requestContext.ts
+import { AsyncLocalStorage } from "node:async_hooks";
+var storage = new AsyncLocalStorage();
+function runAsUser(userId, fn) {
+  return storage.run({ userId }, fn);
+}
+function currentUserId() {
+  const userId = storage.getStore()?.userId;
+  if (!userId) {
+    throw new Error("Sign in required.");
+  }
+  return userId;
+}
+
+// src/server/stateStore.ts
 var LOCAL_DIR = path.resolve(process.cwd(), ".studio-data");
-var LOCAL_FILE = path.join(LOCAL_DIR, "studio-db.json");
+var LEGACY_LOCAL_FILE = path.join(LOCAL_DIR, "studio-db.json");
+var LOCAL_CLAIM_FILE = path.join(LOCAL_DIR, "legacy-owner.json");
 var EPHEMERAL_DIR = path.join("/tmp", "atelier-studio");
-var EPHEMERAL_FILE = path.join(EPHEMERAL_DIR, "studio-db.json");
-var BLOB_PATH = "studio/studio-db.json";
+var LEGACY_BLOB_PATH = "studio/studio-db.json";
+var CLAIM_BLOB_PATH = "auth/legacy-owner.json";
+function safeUserId(userId) {
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) {
+    throw new Error("Invalid user.");
+  }
+  return userId;
+}
 function createEmptyState() {
   return {
     aiMode: "live",
@@ -61,46 +84,122 @@ function writeJsonFile(filePath, state) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(state), "utf-8");
 }
-async function loadStudioState() {
-  const mode = getStorageMode();
-  if (mode === "local-disk") return readJsonFile(LOCAL_FILE);
-  if (mode === "ephemeral") return readJsonFile(EPHEMERAL_FILE);
+function stateHasContent(state) {
+  return state.projects.length > 0 || state.products.length > 0 || state.shoots.length > 0 || state.generatedImages.length > 0 || state.postDrafts.length > 0;
+}
+function userLocalFile(userId) {
+  return path.join(LOCAL_DIR, "users", safeUserId(userId), "studio-db.json");
+}
+function userEphemeralFile(userId) {
+  return path.join(EPHEMERAL_DIR, "users", safeUserId(userId), "studio-db.json");
+}
+function userBlobPath(userId) {
+  return `studio/${safeUserId(userId)}/studio-db.json`;
+}
+async function readBlobJson(blobPath) {
   const { get } = await import("@vercel/blob");
   let result;
   try {
-    result = await get(BLOB_PATH, { access: "private", useCache: false });
+    result = await get(blobPath, { access: "private", useCache: false });
   } catch {
-    return createEmptyState();
+    return null;
   }
-  if (!result || result.statusCode !== 200 || !result.stream) {
-    return createEmptyState();
-  }
+  if (!result || result.statusCode !== 200 || !result.stream) return null;
   const raw = await new Response(result.stream).text();
   try {
-    return normalizeState(JSON.parse(raw));
+    return JSON.parse(raw);
   } catch {
-    return createEmptyState();
+    return null;
   }
 }
-async function saveStudioState(state) {
-  const next = { ...state, aiMode: "live" };
-  const mode = getStorageMode();
-  if (mode === "local-disk") {
-    writeJsonFile(LOCAL_FILE, next);
-    return;
-  }
-  if (mode === "ephemeral") {
-    writeJsonFile(EPHEMERAL_FILE, next);
-    return;
-  }
+async function writeBlobJson(blobPath, value) {
   const { put } = await import("@vercel/blob");
-  await put(BLOB_PATH, JSON.stringify(next), {
+  await put(blobPath, JSON.stringify(value), {
     access: "private",
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "application/json",
     cacheControlMaxAge: 0
   });
+}
+async function readUserState(userId) {
+  const mode = getStorageMode();
+  if (mode === "local-disk") return readJsonFile(userLocalFile(userId));
+  if (mode === "ephemeral") return readJsonFile(userEphemeralFile(userId));
+  const parsed = await readBlobJson(userBlobPath(userId));
+  if (!parsed) return createEmptyState();
+  return normalizeState(parsed);
+}
+async function writeUserState(userId, state) {
+  const mode = getStorageMode();
+  if (mode === "local-disk") {
+    writeJsonFile(userLocalFile(userId), state);
+    return;
+  }
+  if (mode === "ephemeral") {
+    writeJsonFile(userEphemeralFile(userId), state);
+    return;
+  }
+  await writeBlobJson(userBlobPath(userId), state);
+}
+async function readLegacyState() {
+  const mode = getStorageMode();
+  if (mode === "local-disk") return readJsonFile(LEGACY_LOCAL_FILE);
+  if (mode === "ephemeral") return createEmptyState();
+  const parsed = await readBlobJson(LEGACY_BLOB_PATH);
+  if (!parsed) return createEmptyState();
+  return normalizeState(parsed);
+}
+async function readLegacyOwner() {
+  const mode = getStorageMode();
+  if (mode === "ephemeral") return null;
+  if (mode === "local-disk") {
+    if (!fs.existsSync(LOCAL_CLAIM_FILE)) return null;
+    try {
+      const parsed2 = JSON.parse(fs.readFileSync(LOCAL_CLAIM_FILE, "utf-8"));
+      return parsed2.userId || null;
+    } catch {
+      return null;
+    }
+  }
+  const parsed = await readBlobJson(CLAIM_BLOB_PATH);
+  return parsed?.userId || null;
+}
+async function writeLegacyOwner(userId) {
+  const payload = { userId };
+  const mode = getStorageMode();
+  if (mode === "local-disk") {
+    fs.mkdirSync(LOCAL_DIR, { recursive: true });
+    fs.writeFileSync(LOCAL_CLAIM_FILE, JSON.stringify(payload), "utf-8");
+    return;
+  }
+  if (mode === "ephemeral") return;
+  await writeBlobJson(CLAIM_BLOB_PATH, payload);
+}
+async function claimLegacyCatalogue(userId) {
+  const owner = await readLegacyOwner();
+  if (owner) return null;
+  const legacy = await readLegacyState();
+  if (!stateHasContent(legacy)) return null;
+  await writeLegacyOwner(userId);
+  await writeUserState(userId, legacy);
+  return legacy;
+}
+function studioStateReferencesMedia(state, pathname) {
+  const encoded = encodeURIComponent(pathname);
+  const serialized = JSON.stringify(state);
+  return serialized.includes(pathname) || serialized.includes(encoded);
+}
+async function loadStudioState() {
+  const userId = currentUserId();
+  const own = await readUserState(userId);
+  if (stateHasContent(own)) return own;
+  const claimed = await claimLegacyCatalogue(userId);
+  return claimed || own;
+}
+async function saveStudioState(state) {
+  const next = { ...state, aiMode: "live" };
+  await writeUserState(currentUserId(), next);
 }
 
 // src/server/repository.ts
@@ -334,13 +433,48 @@ function extensionForMime(mimeType) {
   if (mimeType.includes("pdf")) return "pdf";
   return "jpg";
 }
+function mediaPathForUser(pathname, userId) {
+  if (!pathname.startsWith("media/") || pathname.includes("..") || pathname.includes("\\")) {
+    return false;
+  }
+  return pathname.startsWith(`media/${userId}/`);
+}
+function diskPathForMedia(pathname) {
+  if (!pathname.startsWith("media/") || pathname.includes("..") || pathname.includes("\\")) {
+    return null;
+  }
+  const relative = pathname.slice("media/".length);
+  const resolved = path3.resolve(UPLOADS_DIR, relative);
+  const root = path3.resolve(UPLOADS_DIR);
+  if (resolved !== root && !resolved.startsWith(root + path3.sep)) return null;
+  return resolved;
+}
+async function readStoredMedia(pathname) {
+  const mode = getStorageMode();
+  if (mode === "vercel-blob") {
+    const { get } = await import("@vercel/blob");
+    const result = await get(pathname, { access: "private" });
+    if (!result || result.statusCode !== 200 || !result.stream) return null;
+    const bytes = Buffer.from(await new Response(result.stream).arrayBuffer());
+    return {
+      bytes,
+      contentType: result.blob.contentType || "application/octet-stream"
+    };
+  }
+  const diskPath = diskPathForMedia(pathname);
+  if (!diskPath || !fs2.existsSync(diskPath)) return null;
+  const ext = path3.extname(diskPath).toLowerCase();
+  const contentType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : ext === ".pdf" ? "application/pdf" : "image/jpeg";
+  return { bytes: fs2.readFileSync(diskPath), contentType };
+}
 async function storeMediaBuffer(buffer, mimeType, prefix) {
   const mode = getStorageMode();
+  const userId = currentUserId();
   const ext = extensionForMime(mimeType);
   const fileName = `${prefix}-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+  const pathname = `media/${userId}/${fileName}`;
   if (mode === "vercel-blob") {
     const { put } = await import("@vercel/blob");
-    const pathname = `media/${fileName}`;
     await put(pathname, buffer, {
       access: "private",
       addRandomSuffix: false,
@@ -353,12 +487,13 @@ async function storeMediaBuffer(buffer, mimeType, prefix) {
       "Image storage is not configured on Vercel. Open the project Storage tab, create a Blob store, then redeploy. Vercel will set BLOB_READ_WRITE_TOKEN automatically."
     );
   }
-  if (!fs2.existsSync(UPLOADS_DIR)) {
-    fs2.mkdirSync(UPLOADS_DIR, { recursive: true });
+  const filePath = diskPathForMedia(pathname);
+  if (!filePath) {
+    throw new Error("Could not store this image.");
   }
-  const filePath = path3.join(UPLOADS_DIR, fileName);
+  fs2.mkdirSync(path3.dirname(filePath), { recursive: true });
   fs2.writeFileSync(filePath, buffer);
-  return `/uploads/${fileName}`;
+  return `/api/media?pathname=${encodeURIComponent(pathname)}`;
 }
 
 // src/server/geminiService.ts
@@ -504,14 +639,12 @@ async function resolveImageToBase64(imageUrlOrPath) {
     if (!pathname.startsWith("media/") || pathname.includes("..")) {
       throw new Error("Garment reference image is missing from storage.");
     }
-    const { get } = await import("@vercel/blob");
-    const result = await get(pathname, { access: "private" });
-    if (!result || result.statusCode !== 200 || !result.stream) {
+    const stored = await readStoredMedia(pathname);
+    if (!stored) {
       throw new Error("Garment reference image is missing from storage.");
     }
-    const mimeType2 = (result.blob.contentType || "image/jpeg").split(";")[0];
-    const buffer2 = Buffer.from(await new Response(result.stream).arrayBuffer());
-    return { data: buffer2.toString("base64"), mimeType: mimeType2 };
+    const mimeType2 = stored.contentType.split(";")[0] || "image/jpeg";
+    return { data: stored.bytes.toString("base64"), mimeType: mimeType2 };
   }
   let diskPath = "";
   if (imageUrlOrPath.startsWith("/uploads/")) {
@@ -1027,6 +1160,37 @@ var DEFAULT_SHOOT_CONFIG = {
   numberOfImages: 4
 };
 
+// src/server/supabaseAuth.ts
+import { createClient } from "@supabase/supabase-js";
+function supabaseServerConfig() {
+  const url = process.env.SUPABASE_URL || "";
+  const anonKey = process.env.SUPABASE_ANON_KEY || "";
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+}
+async function userIdFromAuthorizationHeader(header) {
+  const config = supabaseServerConfig();
+  if (!config) {
+    throw new Error(
+      "SUPABASE_URL and SUPABASE_ANON_KEY are not configured. Add them in Vercel, then redeploy."
+    );
+  }
+  const value = header || "";
+  const token = value.startsWith("Bearer ") ? value.slice("Bearer ".length).trim() : "";
+  if (!token) return null;
+  const supabase = createClient(config.url, config.anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user?.id) return null;
+  if (!/^[0-9a-f-]{36}$/i.test(data.user.id)) return null;
+  return data.user.id;
+}
+async function userIdFromRequest(req) {
+  const header = req.headers.authorization;
+  return userIdFromAuthorizationHeader(Array.isArray(header) ? header[0] : header);
+}
+
 // server.ts
 var PORT = Number(process.env.PORT) || 3e3;
 function buildRuntime() {
@@ -1244,6 +1408,25 @@ function createApp() {
     });
   }
   app.use(express.json({ limit: "25mb" }));
+  app.use(async (req, res, next) => {
+    const url = req.url || "/";
+    const pathOnly = url.split("?")[0];
+    if (!pathOnly.startsWith("/api")) {
+      next();
+      return;
+    }
+    try {
+      const userId = await userIdFromRequest(req);
+      if (!userId) {
+        res.status(401).json({ error: "Sign in required." });
+        return;
+      }
+      runAsUser(userId, () => next());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sign-in could not be checked.";
+      res.status(503).json({ error: message });
+    }
+  });
   app.use("/uploads", express.static(UPLOADS_DIR));
   app.use("/src/assets", express.static(path5.join(process.cwd(), "src/assets")));
   app.get("/api/status", async (_req, res) => {
@@ -1726,17 +1909,29 @@ function createApp() {
       res.status(400).json({ error: "Invalid media path." });
       return;
     }
-    const { get } = await import("@vercel/blob");
-    const result = await get(pathname, { access: "private" });
-    if (!result || result.statusCode !== 200 || !result.stream) {
+    let allowed = false;
+    try {
+      const userId = currentUserId();
+      allowed = mediaPathForUser(pathname, userId);
+      if (!allowed) {
+        allowed = studioStateReferencesMedia(await loadStudioState(), pathname);
+      }
+    } catch {
+      allowed = false;
+    }
+    if (!allowed) {
       res.status(404).json({ error: "Media not found." });
       return;
     }
-    res.setHeader("Content-Type", result.blob.contentType || "application/octet-stream");
-    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    const stored = await readStoredMedia(pathname);
+    if (!stored) {
+      res.status(404).json({ error: "Media not found." });
+      return;
+    }
+    res.setHeader("Content-Type", stored.contentType);
+    res.setHeader("Cache-Control", "private, max-age=31536000, immutable");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    const bytes = Buffer.from(await new Response(result.stream).arrayBuffer());
-    res.end(bytes);
+    res.end(stored.bytes);
   });
   app.use("/api", (req, res) => {
     res.status(404).json({ error: "Unknown API route.", path: req.originalUrl });

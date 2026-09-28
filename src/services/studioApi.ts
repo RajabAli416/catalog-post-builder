@@ -1,3 +1,4 @@
+import { getAccessToken } from '../lib/supabaseClient';
 import {
   AIMode,
   BackgroundType,
@@ -14,6 +15,17 @@ import {
   StudioShoot,
 } from '../types/studio';
 
+export async function studioFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const token = await getAccessToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const res = await fetch(input, { ...init, headers });
+  if (res.status === 401 && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('studio:signed-out'));
+  }
+  return res;
+}
+
 export interface BootstrapResponse {
   aiMode: AIMode;
   projects: StudioProject[];
@@ -25,7 +37,7 @@ export interface BootstrapResponse {
 }
 
 export async function fetchBootstrapState(): Promise<BootstrapResponse> {
-  const res = await fetch('/api/bootstrap');
+  const res = await studioFetch('/api/bootstrap');
   if (!res.ok) {
     throw new Error('Failed to load studio state from server.');
   }
@@ -35,7 +47,7 @@ export async function fetchBootstrapState(): Promise<BootstrapResponse> {
 export async function setRuntimeAiMode(
   aiMode: AIMode
 ): Promise<StudioRuntimeStatus> {
-  const res = await fetch('/api/settings/mode', {
+  const res = await studioFetch('/api/settings/mode', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ aiMode }),
@@ -68,7 +80,7 @@ export async function uploadCatalogueToServer(params: {
     formData.append('fileName', params.fallbackFileNames[0]);
   }
 
-  const res = await fetch(`/api/projects/${encodeURIComponent(params.projectId)}/catalogue`, {
+  const res = await studioFetch(`/api/projects/${encodeURIComponent(params.projectId)}/catalogue`, {
     method: 'POST',
     body: formData,
   });
@@ -91,7 +103,7 @@ export async function manualExtractProductFromPage(
     croppedDataUrl: string;
   }
 ): Promise<CatalogueProduct> {
-  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/manual-extract`, {
+  const res = await studioFetch(`/api/projects/${encodeURIComponent(projectId)}/manual-extract`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -107,7 +119,7 @@ export async function analyzeProductGarmentApi(productId: string): Promise<{
   product: CatalogueProduct;
   garmentAnalysis: GarmentAnalysis;
 }> {
-  const res = await fetch(`/api/products/${encodeURIComponent(productId)}/analyze`, {
+  const res = await studioFetch(`/api/products/${encodeURIComponent(productId)}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -122,7 +134,7 @@ export async function createAndStartShootApi(
   productId: string,
   config: ShootConfiguration
 ): Promise<StudioShoot> {
-  const createRes = await fetch(
+  const createRes = await studioFetch(
     `/api/products/${encodeURIComponent(productId)}/shoots`,
     {
       method: 'POST',
@@ -135,7 +147,7 @@ export async function createAndStartShootApi(
     throw new Error(createdShoot.error || 'Failed to create shoot.');
   }
 
-  const genRes = await fetch(
+  const genRes = await studioFetch(
     `/api/shoots/${encodeURIComponent(createdShoot.id)}/generate`,
     {
       method: 'POST',
@@ -153,7 +165,7 @@ export async function pollShootStatusApi(shootId: string): Promise<{
   shoot: StudioShoot;
   garmentAnalysis: GarmentAnalysis | null;
 }> {
-  const res = await fetch(`/api/shoots/${encodeURIComponent(shootId)}`);
+  const res = await studioFetch(`/api/shoots/${encodeURIComponent(shootId)}`);
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.error || 'Failed to poll shoot status.');
@@ -172,7 +184,7 @@ export async function regenerateSingleImageApi(
   imageId: string,
   overrides: RegenerateImageOverrides = {}
 ): Promise<GeneratedShootImage> {
-  const res = await fetch(
+  const res = await studioFetch(
     `/api/generated-images/${encodeURIComponent(imageId)}/regenerate`,
     {
       method: 'POST',
@@ -188,7 +200,7 @@ export async function regenerateSingleImageApi(
 }
 
 export async function deleteGeneratedImageApi(imageId: string): Promise<void> {
-  const res = await fetch(
+  const res = await studioFetch(
     `/api/generated-images/${encodeURIComponent(imageId)}`,
     {
       method: 'DELETE',
@@ -211,7 +223,7 @@ export async function generateInstagramCopyApi(params: {
   hashtags: string[];
   cta: string;
 }> {
-  const res = await fetch('/api/posts/generate-copy', {
+  const res = await studioFetch('/api/posts/generate-copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -226,7 +238,7 @@ export async function generateInstagramCopyApi(params: {
 export async function saveInstagramPostApi(
   draft: Omit<InstagramPostDraft, 'id' | 'updatedAt'>
 ): Promise<InstagramPostDraft> {
-  const res = await fetch('/api/posts', {
+  const res = await studioFetch('/api/posts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(draft),
@@ -239,7 +251,7 @@ export async function saveInstagramPostApi(
 }
 
 export async function deleteInstagramPostApi(postId: string): Promise<void> {
-  const res = await fetch(`/api/posts/${encodeURIComponent(postId)}`, {
+  const res = await studioFetch(`/api/posts/${encodeURIComponent(postId)}`, {
     method: 'DELETE',
   });
   if (!res.ok) {

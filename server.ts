@@ -26,8 +26,10 @@ import {
   getGeminiConfig,
 } from './src/server/geminiService';
 import { DEFAULT_SHOOT_CONFIG } from './src/data/studioDefaults';
-import { storeMediaBuffer } from './src/server/mediaStore';
-import { getStorageMode } from './src/server/stateStore';
+import { mediaPathForUser, readStoredMedia, storeMediaBuffer } from './src/server/mediaStore';
+import { currentUserId, runAsUser } from './src/server/requestContext';
+import { getStorageMode, loadStudioState, studioStateReferencesMedia } from './src/server/stateStore';
+import { userIdFromRequest } from './src/server/supabaseAuth';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -276,6 +278,25 @@ export function createApp() {
   }
 
   app.use(express.json({ limit: '25mb' }));
+  app.use(async (req, res, next) => {
+    const url = req.url || '/';
+    const pathOnly = url.split('?')[0];
+    if (!pathOnly.startsWith('/api')) {
+      next();
+      return;
+    }
+    try {
+      const userId = await userIdFromRequest(req);
+      if (!userId) {
+        res.status(401).json({ error: 'Sign in required.' });
+        return;
+      }
+      runAsUser(userId, () => next());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign-in could not be checked.';
+      res.status(503).json({ error: message });
+    }
+  });
   app.use('/uploads', express.static(UPLOADS_DIR));
   app.use('/src/assets', express.static(path.join(process.cwd(), 'src/assets')));
 
@@ -903,17 +924,29 @@ export function createApp() {
       res.status(400).json({ error: 'Invalid media path.' });
       return;
     }
-    const { get } = await import('@vercel/blob');
-    const result = await get(pathname, { access: 'private' });
-    if (!result || result.statusCode !== 200 || !result.stream) {
+    let allowed = false;
+    try {
+      const userId = currentUserId();
+      allowed = mediaPathForUser(pathname, userId);
+      if (!allowed) {
+        allowed = studioStateReferencesMedia(await loadStudioState(), pathname);
+      }
+    } catch {
+      allowed = false;
+    }
+    if (!allowed) {
       res.status(404).json({ error: 'Media not found.' });
       return;
     }
-    res.setHeader('Content-Type', result.blob.contentType || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    const stored = await readStoredMedia(pathname);
+    if (!stored) {
+      res.status(404).json({ error: 'Media not found.' });
+      return;
+    }
+    res.setHeader('Content-Type', stored.contentType);
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    const bytes = Buffer.from(await new Response(result.stream).arrayBuffer());
-    res.end(bytes);
+    res.end(stored.bytes);
   });
 
   app.use('/api', (req, res) => {

@@ -11,6 +11,7 @@ import {
   Instagram,
   LayoutDashboard,
   Layers,
+  LogOut,
   Menu,
   Plus,
   Settings,
@@ -56,6 +57,8 @@ import { LibraryView } from './components/views/LibraryView';
 import { SettingsView } from './components/views/SettingsView';
 import { CompareModal } from './components/common/CompareModal';
 import { ConfirmDialog } from './components/common/ConfirmDialog';
+import { LoginView } from './components/views/LoginView';
+import { supabase } from './lib/supabaseClient';
 
 export default function App() {
   // Navigation & Responsive Sidebar State
@@ -71,6 +74,7 @@ export default function App() {
   const [runtimeStatus, setRuntimeStatus] =
     useState<StudioRuntimeStatus | null>(null);
   const [studioError, setStudioError] = useState<string | null>(null);
+  const [sessionEmail, setSessionEmail] = useState<string | null | undefined>(undefined);
 
   const [newProjectTitle, setNewProjectTitle] = useState('');
   const [activeProduct, setActiveProduct] = useState<CatalogueProduct | null>(null);
@@ -93,8 +97,48 @@ export default function App() {
     }, 3400);
   };
 
-  // Hydrate persistent studio state from backend on mount
+  const clearStudio = () => {
+    setProjects([]);
+    setProducts([]);
+    setShoots([]);
+    setGeneratedImages([]);
+    setPostDrafts([]);
+    setCataloguePages([]);
+    setActiveProduct(null);
+    setActiveShoot(null);
+    setRuntimeStatus(null);
+    setActiveTab('dashboard');
+  };
+
   useEffect(() => {
+    if (!supabase) {
+      setSessionEmail(null);
+      return;
+    }
+    const client = supabase;
+    let mounted = true;
+    client.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSessionEmail(data.session?.user.email ?? null);
+    });
+    const { data: subscription } = client.auth.onAuthStateChange((_event, session) => {
+      setSessionEmail(session?.user.email ?? null);
+      if (!session) clearStudio();
+    });
+    const onSignedOut = () => {
+      void client.auth.signOut();
+    };
+    window.addEventListener('studio:signed-out', onSignedOut);
+    return () => {
+      mounted = false;
+      subscription.subscription.unsubscribe();
+      window.removeEventListener('studio:signed-out', onSignedOut);
+    };
+  }, []);
+
+  // Hydrate persistent studio state from backend after sign-in
+  useEffect(() => {
+    if (!sessionEmail) return;
     let mounted = true;
     fetchBootstrapState()
       .then((data) => {
@@ -128,7 +172,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [sessionEmail]);
 
   // Keep activeProduct synchronized when products array updates
   useEffect(() => {
@@ -452,6 +496,18 @@ export default function App() {
     { id: 'post-builder', label: '04. Instagram Post' },
   ];
 
+  if (sessionEmail === undefined) {
+    return (
+      <div className="min-h-screen bg-[#FAF9F5] text-[#57554E] flex items-center justify-center text-sm">
+        Loading studio…
+      </div>
+    );
+  }
+
+  if (!sessionEmail) {
+    return <LoginView onSignedIn={setSessionEmail} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#FAF9F5] text-[#141413] flex flex-col">
       {/* Top Bar Contract: 3 Zones (Single Brand Wordmark — 4 Workflow Nav Links — Primary Action) */}
@@ -683,6 +739,16 @@ export default function App() {
                   {runtimeStatus.hasGeminiApiKey ? 'LIVE' : 'NO KEY'}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void supabase?.auth.signOut();
+              }}
+              className="mt-1 w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5] transition-colors whitespace-nowrap"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="truncate">Sign out{sessionEmail ? ` (${sessionEmail})` : ''}</span>
             </button>
           </div>
         </aside>

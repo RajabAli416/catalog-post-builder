@@ -1,14 +1,23 @@
 import fs from 'fs';
 import path from 'path';
 import type { StudioDatabaseState } from './repository';
+import { currentUserId } from './requestContext';
 
 export type StorageMode = 'vercel-blob' | 'local-disk' | 'ephemeral';
 
 const LOCAL_DIR = path.resolve(process.cwd(), '.studio-data');
-const LOCAL_FILE = path.join(LOCAL_DIR, 'studio-db.json');
+const LEGACY_LOCAL_FILE = path.join(LOCAL_DIR, 'studio-db.json');
+const LOCAL_CLAIM_FILE = path.join(LOCAL_DIR, 'legacy-owner.json');
 const EPHEMERAL_DIR = path.join('/tmp', 'atelier-studio');
-const EPHEMERAL_FILE = path.join(EPHEMERAL_DIR, 'studio-db.json');
-const BLOB_PATH = 'studio/studio-db.json';
+const LEGACY_BLOB_PATH = 'studio/studio-db.json';
+const CLAIM_BLOB_PATH = 'auth/legacy-owner.json';
+
+function safeUserId(userId: string): string {
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) {
+    throw new Error('Invalid user.');
+  }
+  return userId;
+}
 
 export function createEmptyState(): StudioDatabaseState {
   return {
@@ -63,47 +72,140 @@ function writeJsonFile(filePath: string, state: StudioDatabaseState): void {
   fs.writeFileSync(filePath, JSON.stringify(state), 'utf-8');
 }
 
-export async function loadStudioState(): Promise<StudioDatabaseState> {
-  const mode = getStorageMode();
-  if (mode === 'local-disk') return readJsonFile(LOCAL_FILE);
-  if (mode === 'ephemeral') return readJsonFile(EPHEMERAL_FILE);
+function stateHasContent(state: StudioDatabaseState): boolean {
+  return (
+    state.projects.length > 0 ||
+    state.products.length > 0 ||
+    state.shoots.length > 0 ||
+    state.generatedImages.length > 0 ||
+    state.postDrafts.length > 0
+  );
+}
 
+function userLocalFile(userId: string): string {
+  return path.join(LOCAL_DIR, 'users', safeUserId(userId), 'studio-db.json');
+}
+
+function userEphemeralFile(userId: string): string {
+  return path.join(EPHEMERAL_DIR, 'users', safeUserId(userId), 'studio-db.json');
+}
+
+function userBlobPath(userId: string): string {
+  return `studio/${safeUserId(userId)}/studio-db.json`;
+}
+
+async function readBlobJson(blobPath: string): Promise<unknown | null> {
   const { get } = await import('@vercel/blob');
   let result;
   try {
-    result = await get(BLOB_PATH, { access: 'private', useCache: false });
+    result = await get(blobPath, { access: 'private', useCache: false });
   } catch {
-    return createEmptyState();
+    return null;
   }
-  if (!result || result.statusCode !== 200 || !result.stream) {
-    return createEmptyState();
-  }
+  if (!result || result.statusCode !== 200 || !result.stream) return null;
   const raw = await new Response(result.stream).text();
   try {
-    return normalizeState(JSON.parse(raw));
+    return JSON.parse(raw);
   } catch {
-    return createEmptyState();
+    return null;
   }
 }
 
-export async function saveStudioState(state: StudioDatabaseState): Promise<void> {
-  const next = { ...state, aiMode: 'live' as const };
-  const mode = getStorageMode();
-  if (mode === 'local-disk') {
-    writeJsonFile(LOCAL_FILE, next);
-    return;
-  }
-  if (mode === 'ephemeral') {
-    writeJsonFile(EPHEMERAL_FILE, next);
-    return;
-  }
-
+async function writeBlobJson(blobPath: string, value: unknown): Promise<void> {
   const { put } = await import('@vercel/blob');
-  await put(BLOB_PATH, JSON.stringify(next), {
+  await put(blobPath, JSON.stringify(value), {
     access: 'private',
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: 'application/json',
     cacheControlMaxAge: 0,
   });
+}
+
+async function readUserState(userId: string): Promise<StudioDatabaseState> {
+  const mode = getStorageMode();
+  if (mode === 'local-disk') return readJsonFile(userLocalFile(userId));
+  if (mode === 'ephemeral') return readJsonFile(userEphemeralFile(userId));
+  const parsed = await readBlobJson(userBlobPath(userId));
+  if (!parsed) return createEmptyState();
+  return normalizeState(parsed as StudioDatabaseState);
+}
+
+async function writeUserState(userId: string, state: StudioDatabaseState): Promise<void> {
+  const mode = getStorageMode();
+  if (mode === 'local-disk') {
+    writeJsonFile(userLocalFile(userId), state);
+    return;
+  }
+  if (mode === 'ephemeral') {
+    writeJsonFile(userEphemeralFile(userId), state);
+    return;
+  }
+  await writeBlobJson(userBlobPath(userId), state);
+}
+
+async function readLegacyState(): Promise<StudioDatabaseState> {
+  const mode = getStorageMode();
+  if (mode === 'local-disk') return readJsonFile(LEGACY_LOCAL_FILE);
+  if (mode === 'ephemeral') return createEmptyState();
+  const parsed = await readBlobJson(LEGACY_BLOB_PATH);
+  if (!parsed) return createEmptyState();
+  return normalizeState(parsed as StudioDatabaseState);
+}
+
+async function readLegacyOwner(): Promise<string | null> {
+  const mode = getStorageMode();
+  if (mode === 'ephemeral') return null;
+  if (mode === 'local-disk') {
+    if (!fs.existsSync(LOCAL_CLAIM_FILE)) return null;
+    try {
+      const parsed = JSON.parse(fs.readFileSync(LOCAL_CLAIM_FILE, 'utf-8')) as { userId?: string };
+      return parsed.userId || null;
+    } catch {
+      return null;
+    }
+  }
+  const parsed = (await readBlobJson(CLAIM_BLOB_PATH)) as { userId?: string } | null;
+  return parsed?.userId || null;
+}
+
+async function writeLegacyOwner(userId: string): Promise<void> {
+  const payload = { userId };
+  const mode = getStorageMode();
+  if (mode === 'local-disk') {
+    fs.mkdirSync(LOCAL_DIR, { recursive: true });
+    fs.writeFileSync(LOCAL_CLAIM_FILE, JSON.stringify(payload), 'utf-8');
+    return;
+  }
+  if (mode === 'ephemeral') return;
+  await writeBlobJson(CLAIM_BLOB_PATH, payload);
+}
+
+async function claimLegacyCatalogue(userId: string): Promise<StudioDatabaseState | null> {
+  const owner = await readLegacyOwner();
+  if (owner) return null;
+  const legacy = await readLegacyState();
+  if (!stateHasContent(legacy)) return null;
+  await writeLegacyOwner(userId);
+  await writeUserState(userId, legacy);
+  return legacy;
+}
+
+export function studioStateReferencesMedia(state: StudioDatabaseState, pathname: string): boolean {
+  const encoded = encodeURIComponent(pathname);
+  const serialized = JSON.stringify(state);
+  return serialized.includes(pathname) || serialized.includes(encoded);
+}
+
+export async function loadStudioState(): Promise<StudioDatabaseState> {
+  const userId = currentUserId();
+  const own = await readUserState(userId);
+  if (stateHasContent(own)) return own;
+  const claimed = await claimLegacyCatalogue(userId);
+  return claimed || own;
+}
+
+export async function saveStudioState(state: StudioDatabaseState): Promise<void> {
+  const next = { ...state, aiMode: 'live' as const };
+  await writeUserState(currentUserId(), next);
 }

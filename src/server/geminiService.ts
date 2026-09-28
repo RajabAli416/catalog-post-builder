@@ -15,7 +15,7 @@ import {
   ShotPoseType,
 } from '../types/studio';
 import { UPLOADS_DIR } from './repository';
-import { storeMediaBuffer } from './mediaStore';
+import { readStoredMedia, storeMediaBuffer } from './mediaStore';
 
 export function getGeminiConfig() {
   const rawKey = process.env.GEMINI_API_KEY || '';
@@ -203,14 +203,12 @@ export async function resolveImageToBase64(imageUrlOrPath: string): Promise<{
     if (!pathname.startsWith('media/') || pathname.includes('..')) {
       throw new Error('Garment reference image is missing from storage.');
     }
-    const { get } = await import('@vercel/blob');
-    const result = await get(pathname, { access: 'private' });
-    if (!result || result.statusCode !== 200 || !result.stream) {
+    const stored = await readStoredMedia(pathname);
+    if (!stored) {
       throw new Error('Garment reference image is missing from storage.');
     }
-    const mimeType = (result.blob.contentType || 'image/jpeg').split(';')[0];
-    const buffer = Buffer.from(await new Response(result.stream).arrayBuffer());
-    return { data: buffer.toString('base64'), mimeType };
+    const mimeType = stored.contentType.split(';')[0] || 'image/jpeg';
+    return { data: stored.bytes.toString('base64'), mimeType };
   }
 
   let diskPath = '';
