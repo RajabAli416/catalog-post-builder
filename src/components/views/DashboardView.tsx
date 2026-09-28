@@ -23,6 +23,8 @@ interface DashboardViewProps {
   generatedImages: GeneratedShootImage[];
   postDrafts: InstagramPostDraft[];
   onNavigate: (tab: NavigationTab) => void;
+  onCreateProject: () => void;
+  onUploadMore: () => void;
   onSelectProductForStudio: (product: CatalogueProduct) => void;
   onOpenProject: (projectId: string) => void;
   onCompareImage: (image: GeneratedShootImage) => void;
@@ -35,6 +37,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   generatedImages,
   postDrafts,
   onNavigate,
+  onCreateProject,
+  onUploadMore,
   onSelectProductForStudio,
   onOpenProject,
   onCompareImage,
@@ -72,7 +76,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
           <button
             type="button"
-            onClick={() => onNavigate('new-project')}
+            onClick={onCreateProject}
             className="flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -276,7 +280,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="bg-white border border-[#E2DFD7] divide-y divide-[#E6E4DD]">
             {projects.length === 0 && (
               <div className="p-6 text-sm text-[#57554E]">
-                No projects yet. Start with a catalogue PDF or garment photos.
+                No projects yet. Create a project, then upload a PDF or garment photos.
               </div>
             )}
             {projects.map((project) => (
@@ -296,7 +300,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="flex items-center gap-2 text-xs text-[#6E6B62]">
                       <span className="font-mono">{project.seasonCode}</span>
                       <span aria-hidden="true">·</span>
-                      <span>{project.sourceType}</span>
+                      <span>{project.sourceFileName ? project.sourceType : 'No uploads yet'}</span>
                       <span aria-hidden="true">·</span>
                       <span>Updated {project.updatedAt}</span>
                     </div>
@@ -307,10 +311,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <span>{project.productIds.length} detected garments</span>
                       <span aria-hidden="true">·</span>
                       <span>{project.shootIds.length} editorial shoots</span>
-                      <span aria-hidden="true">·</span>
-                      <span className="font-mono text-[11px] truncate max-w-[200px]">
-                        {project.sourceFileName}
-                      </span>
+                      {project.sourceFileName && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="font-mono text-[11px] truncate max-w-[200px]">
+                            {project.sourceFileName}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -342,7 +350,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => onNavigate('new-project')}
+              onClick={onUploadMore}
               className="text-xs font-medium text-[#141413] hover:underline underline-offset-4 whitespace-nowrap"
             >
               + Upload More

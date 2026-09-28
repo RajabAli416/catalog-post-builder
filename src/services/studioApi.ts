@@ -59,6 +59,19 @@ export async function setRuntimeAiMode(
   return data;
 }
 
+export async function createProjectOnServer(name: string): Promise<StudioProject> {
+  const res = await studioFetch('/api/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Could not create the project.');
+  }
+  return data;
+}
+
 export async function uploadCatalogueToServer(params: {
   projectId: string;
   projectName: string;

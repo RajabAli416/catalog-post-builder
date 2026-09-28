@@ -28,10 +28,8 @@ function currentUserId() {
 // src/server/stateStore.ts
 var LOCAL_DIR = path.resolve(process.cwd(), ".studio-data");
 var LEGACY_LOCAL_FILE = path.join(LOCAL_DIR, "studio-db.json");
-var LOCAL_CLAIM_FILE = path.join(LOCAL_DIR, "legacy-owner.json");
 var EPHEMERAL_DIR = path.join("/tmp", "atelier-studio");
 var LEGACY_BLOB_PATH = "studio/studio-db.json";
-var CLAIM_BLOB_PATH = "auth/legacy-owner.json";
 function safeUserId(userId) {
   if (!/^[0-9a-f-]{36}$/i.test(userId)) {
     throw new Error("Invalid user.");
@@ -150,40 +148,14 @@ async function readLegacyState() {
   if (!parsed) return createEmptyState();
   return normalizeState(parsed);
 }
-async function readLegacyOwner() {
-  const mode = getStorageMode();
-  if (mode === "ephemeral") return null;
-  if (mode === "local-disk") {
-    if (!fs.existsSync(LOCAL_CLAIM_FILE)) return null;
-    try {
-      const parsed2 = JSON.parse(fs.readFileSync(LOCAL_CLAIM_FILE, "utf-8"));
-      return parsed2.userId || null;
-    } catch {
-      return null;
-    }
-  }
-  const parsed = await readBlobJson(CLAIM_BLOB_PATH);
-  return parsed?.userId || null;
-}
-async function writeLegacyOwner(userId) {
-  const payload = { userId };
-  const mode = getStorageMode();
-  if (mode === "local-disk") {
-    fs.mkdirSync(LOCAL_DIR, { recursive: true });
-    fs.writeFileSync(LOCAL_CLAIM_FILE, JSON.stringify(payload), "utf-8");
-    return;
-  }
-  if (mode === "ephemeral") return;
-  await writeBlobJson(CLAIM_BLOB_PATH, payload);
-}
-async function claimLegacyCatalogue(userId) {
-  const owner = await readLegacyOwner();
-  if (owner) return null;
-  const legacy = await readLegacyState();
-  if (!stateHasContent(legacy)) return null;
-  await writeLegacyOwner(userId);
-  await writeUserState(userId, legacy);
-  return legacy;
+function contentKey(state) {
+  return JSON.stringify({
+    projects: state.projects,
+    products: state.products,
+    shoots: state.shoots,
+    generatedImages: state.generatedImages,
+    postDrafts: state.postDrafts
+  });
 }
 function studioStateReferencesMedia(state, pathname) {
   const encoded = encodeURIComponent(pathname);
@@ -193,9 +165,14 @@ function studioStateReferencesMedia(state, pathname) {
 async function loadStudioState() {
   const userId = currentUserId();
   const own = await readUserState(userId);
-  if (stateHasContent(own)) return own;
-  const claimed = await claimLegacyCatalogue(userId);
-  return claimed || own;
+  if (!stateHasContent(own)) return own;
+  const legacy = await readLegacyState();
+  if (stateHasContent(legacy) && contentKey(own) === contentKey(legacy)) {
+    const empty = createEmptyState();
+    await writeUserState(userId, empty);
+    return empty;
+  }
+  return own;
 }
 async function saveStudioState(state) {
   const next = { ...state, aiMode: "live" };
@@ -1446,7 +1423,7 @@ function createApp() {
   app.post("/api/projects", async (req, res) => {
     const name = sanitizeText(req.body?.name, 160) || "Untitled Seasonal Collection";
     const sourceType = req.body?.sourceType === "Garment Images" ? "Garment Images" : "Catalogue PDF";
-    const sourceFileName = sanitizeText(req.body?.sourceFileName, 200) || "Seasonal_Catalogue.pdf";
+    const sourceFileName = sanitizeText(req.body?.sourceFileName, 200);
     const newProject = {
       id: `proj-${Date.now()}`,
       name,
@@ -1487,9 +1464,13 @@ function createApp() {
     async (req, res) => {
       try {
         const projectId = sanitizeText(req.params.id, 80);
-        let project = await studioRepository.getProject(projectId);
+        const project = await studioRepository.getProject(projectId);
+        if (!project) {
+          res.status(404).json({ error: "Create a project before uploading a catalogue." });
+          return;
+        }
         const sourceType = req.body?.sourceType === "Garment Images" ? "Garment Images" : "Catalogue PDF";
-        const projectName = sanitizeText(req.body?.projectName, 160) || project?.name || "Untitled Collection";
+        const projectName = sanitizeText(req.body?.projectName, 160) || project.name || "Untitled Collection";
         const files = req.files || [];
         if (files.length === 0) {
           res.status(400).json({
@@ -1507,21 +1488,6 @@ function createApp() {
             mimeType,
             buffer: file.buffer,
             publicUrl
-          });
-        }
-        if (!project) {
-          project = await studioRepository.createProject({
-            id: projectId,
-            name: projectName,
-            seasonCode: "FW26",
-            sourceType,
-            sourceFileName: uploadedFiles[0]?.originalName || "catalogue-upload",
-            status: "active",
-            createdAt: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
-            updatedAt: "Just now",
-            productIds: [],
-            shootIds: [],
-            coverImageUrl: ""
           });
         }
         const aiMode = await studioRepository.getAiMode();

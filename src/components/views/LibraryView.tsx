@@ -11,7 +11,6 @@ import {
   CatalogueProduct,
   GeneratedShootImage,
   InstagramPostDraft,
-  NavigationTab,
   StudioProject,
   StudioShoot,
 } from '../../types/studio';
@@ -25,7 +24,8 @@ interface LibraryViewProps {
   generatedImages: GeneratedShootImage[];
   postDrafts: InstagramPostDraft[];
   onSwitchSubTab: (tab: 'projects' | 'products' | 'shoots' | 'posts') => void;
-  onNavigate: (tab: NavigationTab) => void;
+  onCreateProject: () => void;
+  onOpenProject: (projectId: string) => void;
   onSelectProductForStudio: (product: CatalogueProduct) => void;
   onOpenShootInGallery: (shoot: StudioShoot) => void;
   onOpenPostBuilder: () => void;
@@ -40,7 +40,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   generatedImages,
   postDrafts,
   onSwitchSubTab,
-  onNavigate,
+  onCreateProject,
+  onOpenProject,
   onSelectProductForStudio,
   onOpenShootInGallery,
   onOpenPostBuilder,
@@ -133,7 +134,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
         <button
           type="button"
-          onClick={() => onNavigate('new-project')}
+          onClick={onCreateProject}
           className="flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap self-start md:self-auto"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -208,6 +209,12 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
         </div>
       </div>
 
+      {activeSubTab === 'projects' && filteredProjects.length === 0 && (
+        <div className="bg-white border border-[#E2DFD7] p-6 text-sm text-[#57554E]">
+          No projects yet. Create a project, then upload a PDF or garment photos.
+        </div>
+      )}
+
       {/* TAB 1: PROJECTS */}
       {activeSubTab === 'projects' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -228,16 +235,18 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                   <div className="flex items-center gap-2 text-xs text-[#6E6B62]">
                     <span className="font-mono">{proj.seasonCode}</span>
                     <span aria-hidden="true">·</span>
-                    <span>{proj.sourceType}</span>
+                    <span>{proj.sourceFileName ? proj.sourceType : 'No uploads yet'}</span>
                     <span aria-hidden="true">·</span>
                     <span>{proj.createdAt}</span>
                   </div>
                   <h2 className="font-editorial text-2xl font-semibold text-[#141413]">
                     {proj.name}
                   </h2>
-                  <p className="text-xs font-mono text-[#78756C]">
-                    {proj.sourceFileName}
-                  </p>
+                  {proj.sourceFileName && (
+                    <p className="text-xs font-mono text-[#78756C]">
+                      {proj.sourceFileName}
+                    </p>
+                  )}
                   <div className="pt-2 flex items-center gap-3 text-xs text-[#57554E] tabular-nums">
                     <span>{proj.productIds.length} products</span>
                     <span aria-hidden="true">·</span>
@@ -249,10 +258,10 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               <div className="flex sm:flex-col justify-end gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => onSwitchSubTab('products')}
+                  onClick={() => onOpenProject(proj.id)}
                   className="px-4 py-2 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
                 >
-                  View Garments
+                  Open Project
                 </button>
               </div>
             </article>

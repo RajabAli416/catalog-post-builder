@@ -181,13 +181,13 @@ export const NewProjectView: React.FC<NewProjectViewProps> = ({
           <div className="flex items-center gap-2 text-xs text-[#6E6B62] mb-1.5">
             <span>Workspace</span>
             <span aria-hidden="true">/</span>
-            <span>New Project & Garment Extraction</span>
+            <span>{projectName || 'Project'}</span>
           </div>
           <h1 className="font-editorial text-3xl md:text-4xl font-semibold text-[#141413]">
-            Ingest Catalogue or Garment Pieces
+            Upload into this project
           </h1>
           <p className="mt-1.5 text-sm text-[#57554E] max-w-2xl">
-            Upload a seasonal line-sheet PDF or individual clothing flat-lays. Studio automatically isolates each garment so you can art-direct model shoots piece by piece.
+            Add a seasonal line-sheet PDF or individual clothing photos. Each upload stays in this project and isolates the garments so you can art-direct them piece by piece.
           </p>
         </div>
 

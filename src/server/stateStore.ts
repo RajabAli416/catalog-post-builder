@@ -7,10 +7,8 @@ export type StorageMode = 'vercel-blob' | 'local-disk' | 'ephemeral';
 
 const LOCAL_DIR = path.resolve(process.cwd(), '.studio-data');
 const LEGACY_LOCAL_FILE = path.join(LOCAL_DIR, 'studio-db.json');
-const LOCAL_CLAIM_FILE = path.join(LOCAL_DIR, 'legacy-owner.json');
 const EPHEMERAL_DIR = path.join('/tmp', 'atelier-studio');
 const LEGACY_BLOB_PATH = 'studio/studio-db.json';
-const CLAIM_BLOB_PATH = 'auth/legacy-owner.json';
 
 function safeUserId(userId: string): string {
   if (!/^[0-9a-f-]{36}$/i.test(userId)) {
@@ -153,42 +151,14 @@ async function readLegacyState(): Promise<StudioDatabaseState> {
   return normalizeState(parsed as StudioDatabaseState);
 }
 
-async function readLegacyOwner(): Promise<string | null> {
-  const mode = getStorageMode();
-  if (mode === 'ephemeral') return null;
-  if (mode === 'local-disk') {
-    if (!fs.existsSync(LOCAL_CLAIM_FILE)) return null;
-    try {
-      const parsed = JSON.parse(fs.readFileSync(LOCAL_CLAIM_FILE, 'utf-8')) as { userId?: string };
-      return parsed.userId || null;
-    } catch {
-      return null;
-    }
-  }
-  const parsed = (await readBlobJson(CLAIM_BLOB_PATH)) as { userId?: string } | null;
-  return parsed?.userId || null;
-}
-
-async function writeLegacyOwner(userId: string): Promise<void> {
-  const payload = { userId };
-  const mode = getStorageMode();
-  if (mode === 'local-disk') {
-    fs.mkdirSync(LOCAL_DIR, { recursive: true });
-    fs.writeFileSync(LOCAL_CLAIM_FILE, JSON.stringify(payload), 'utf-8');
-    return;
-  }
-  if (mode === 'ephemeral') return;
-  await writeBlobJson(CLAIM_BLOB_PATH, payload);
-}
-
-async function claimLegacyCatalogue(userId: string): Promise<StudioDatabaseState | null> {
-  const owner = await readLegacyOwner();
-  if (owner) return null;
-  const legacy = await readLegacyState();
-  if (!stateHasContent(legacy)) return null;
-  await writeLegacyOwner(userId);
-  await writeUserState(userId, legacy);
-  return legacy;
+function contentKey(state: StudioDatabaseState): string {
+  return JSON.stringify({
+    projects: state.projects,
+    products: state.products,
+    shoots: state.shoots,
+    generatedImages: state.generatedImages,
+    postDrafts: state.postDrafts,
+  });
 }
 
 export function studioStateReferencesMedia(state: StudioDatabaseState, pathname: string): boolean {
@@ -200,9 +170,15 @@ export function studioStateReferencesMedia(state: StudioDatabaseState, pathname:
 export async function loadStudioState(): Promise<StudioDatabaseState> {
   const userId = currentUserId();
   const own = await readUserState(userId);
-  if (stateHasContent(own)) return own;
-  const claimed = await claimLegacyCatalogue(userId);
-  return claimed || own;
+  if (!stateHasContent(own)) return own;
+
+  const legacy = await readLegacyState();
+  if (stateHasContent(legacy) && contentKey(own) === contentKey(legacy)) {
+    const empty = createEmptyState();
+    await writeUserState(userId, empty);
+    return empty;
+  }
+  return own;
 }
 
 export async function saveStudioState(state: StudioDatabaseState): Promise<void> {

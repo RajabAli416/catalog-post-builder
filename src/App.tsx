@@ -40,6 +40,7 @@ import {
   deleteGeneratedImageApi,
   deleteInstagramPostApi,
   fetchBootstrapState,
+  createProjectOnServer,
   manualExtractProductFromPage,
   RegenerateImageOverrides,
   regenerateSingleImageApi,
@@ -77,6 +78,11 @@ export default function App() {
   const [sessionEmail, setSessionEmail] = useState<string | null | undefined>(undefined);
 
   const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [createProjectName, setCreateProjectName] = useState('');
+  const [createProjectError, setCreateProjectError] = useState<string | null>(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [activeProduct, setActiveProduct] = useState<CatalogueProduct | null>(null);
   const [shootConfig, setShootConfig] =
     useState<ShootConfiguration>(DEFAULT_SHOOT_CONFIG);
@@ -106,6 +112,8 @@ export default function App() {
     setCataloguePages([]);
     setActiveProduct(null);
     setActiveShoot(null);
+    setActiveProjectId(null);
+    setCreateProjectOpen(false);
     setRuntimeStatus(null);
     setActiveTab('dashboard');
   };
@@ -145,9 +153,6 @@ export default function App() {
         if (!mounted) return;
         if (data.projects?.length) {
           setProjects(data.projects);
-          if (data.projects[0]?.pages?.length) {
-            setCataloguePages(data.projects[0].pages);
-          }
         }
         setProducts(data.products || []);
         setActiveProduct((prev) => {
@@ -185,23 +190,86 @@ export default function App() {
 
   // Navigation helper
   const navigateTo = (tab: NavigationTab) => {
+    setCreateProjectOpen(false);
     setActiveTab(tab);
     setMobileMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // 1A. Catalogue / Garment Upload (Real files or Instant Sample)
+  const activeProject = projects.find((project) => project.id === activeProjectId) || null;
+
+  const startCreateProject = () => {
+    setCreateProjectName('');
+    setCreateProjectError(null);
+    setCreateProjectOpen(true);
+    setMobileMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openProject = (projectId: string) => {
+    const project = projects.find((item) => item.id === projectId);
+    if (!project) {
+      navigateTo('projects');
+      return;
+    }
+    setActiveProjectId(project.id);
+    setNewProjectTitle(project.name);
+    setCataloguePages(project.pages || []);
+    setCreateProjectOpen(false);
+    navigateTo('new-project');
+  };
+
+  const openCatalogue = () => {
+    if (activeProject) {
+      setCataloguePages(activeProject.pages || []);
+      setNewProjectTitle(activeProject.name);
+      navigateTo('new-project');
+      return;
+    }
+    navigateTo('projects');
+  };
+
+  const handleCreateProject = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = createProjectName.trim();
+    if (!name) {
+      setCreateProjectError('Name the collection before creating it.');
+      return;
+    }
+    setIsCreatingProject(true);
+    setCreateProjectError(null);
+    try {
+      const project = await createProjectOnServer(name);
+      setProjects((prev) => [project, ...prev.filter((item) => item.id !== project.id)]);
+      setActiveProjectId(project.id);
+      setNewProjectTitle(project.name);
+      setCataloguePages([]);
+      setCreateProjectOpen(false);
+      navigateTo('new-project');
+      triggerToast(`Created ${project.name}`);
+    } catch (err: unknown) {
+      setCreateProjectError(
+        err instanceof Error ? err.message : 'Could not create the project.'
+      );
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
+
+  // 1A. Catalogue / Garment Upload into the open project
   const handleUploadCatalogue = async (
     sourceType: 'Catalogue PDF' | 'Garment Images',
     files?: File[]
   ) => {
+    if (!activeProjectId) {
+      throw new Error('Create a project before uploading a PDF or garment photos.');
+    }
     if (!files || files.length === 0) {
       throw new Error('Choose a catalogue PDF or garment images to upload.');
     }
-    const projectId = `proj-${Date.now()}`;
     const result = await uploadCatalogueToServer({
-      projectId,
-      projectName: newProjectTitle || 'Untitled Collection',
+      projectId: activeProjectId,
+      projectName: newProjectTitle || activeProject?.name || 'Untitled Collection',
       sourceType,
       files,
     });
@@ -210,7 +278,11 @@ export default function App() {
       result.project,
       ...prev.filter((p) => p.id !== result.project.id),
     ]);
-    setProducts((prev) => [...result.products, ...prev]);
+    setProducts((prev) => {
+      const incomingIds = new Set(result.products.map((product) => product.id));
+      return [...result.products, ...prev.filter((product) => !incomingIds.has(product.id))];
+    });
+    setNewProjectTitle(result.project.name);
     if (result.pages?.length) {
       setCataloguePages(result.pages);
     }
@@ -233,15 +305,28 @@ export default function App() {
     sourcePage: number;
     croppedDataUrl: string;
   }) => {
-    const targetProjectId = projects[0]?.id;
-    if (!targetProjectId) {
-      throw new Error('Create a project by uploading a catalogue before cropping a page.');
+    if (!activeProjectId) {
+      throw new Error('Open a project before cropping a page.');
     }
     const createdProduct = await manualExtractProductFromPage(
-      targetProjectId,
+      activeProjectId,
       payload
     );
     setProducts((prev) => [createdProduct, ...prev]);
+    setProjects((prev) =>
+      prev.map((project) =>
+        project.id === activeProjectId
+          ? {
+              ...project,
+              productIds: [
+                createdProduct.id,
+                ...project.productIds.filter((id) => id !== createdProduct.id),
+              ],
+              coverImageUrl: project.coverImageUrl || createdProduct.referenceImage,
+            }
+          : project
+      )
+    );
     setActiveProduct(createdProduct);
     triggerToast(
       `Extracted custom garment crop "${createdProduct.name}" from Page ${payload.sourcePage}`
@@ -256,7 +341,13 @@ export default function App() {
   };
 
   const handleSelectAllProducts = (selected: boolean) => {
-    setProducts((prev) => prev.map((p) => ({ ...p, selected })));
+    setProducts((prev) =>
+      prev.map((product) =>
+        activeProjectId && product.projectId === activeProjectId
+          ? { ...product, selected }
+          : product
+      )
+    );
   };
 
   // 3. Open Product Workspace & Structured Garment Analysis (Phase 2C)
@@ -544,12 +635,12 @@ export default function App() {
           className="hidden md:flex items-center gap-6 text-xs font-medium text-[#57554E]"
         >
           {workflowSteps.map((step) => {
-            const isActive = activeTab === step.id;
+            const isActive = !createProjectOpen && activeTab === step.id;
             return (
               <button
                 key={step.id}
                 type="button"
-                onClick={() => navigateTo(step.id)}
+                onClick={() => (step.id === 'new-project' ? openCatalogue() : navigateTo(step.id))}
                 className={`py-1 transition-colors whitespace-nowrap border-b-2 ${
                   isActive
                     ? 'text-[#141413] border-[#141413] font-semibold'
@@ -574,7 +665,7 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => navigateTo('new-project')}
+            onClick={startCreateProject}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -643,9 +734,9 @@ export default function App() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigateTo('new-project')}
+                    onClick={startCreateProject}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
-                      activeTab === 'new-project'
+                      createProjectOpen
                         ? 'bg-[#141413] text-white'
                         : 'text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5]'
                     }`}
@@ -770,15 +861,70 @@ export default function App() {
               Create a Vercel Blob store under Storage so uploads and generated images persist. Redeploy after the store is connected.
             </div>
           )}
-          {activeTab === 'dashboard' && (
+          {createProjectOpen && (
+            <form
+              onSubmit={handleCreateProject}
+              className="max-w-xl border border-[#E2DFD7] bg-white p-8 space-y-6"
+            >
+              <div>
+                <div className="text-xs text-[#6E6B62] mb-1.5">Studio / New project</div>
+                <h1 className="font-editorial text-3xl font-semibold text-[#141413]">
+                  Name this collection
+                </h1>
+                <p className="mt-2 text-sm text-[#57554E]">
+                  Create the project first. PDF and garment photo uploads happen inside it.
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="create-project-name"
+                  className="block text-xs font-medium text-[#141413] mb-2"
+                >
+                  Collection name
+                </label>
+                <input
+                  id="create-project-name"
+                  type="text"
+                  value={createProjectName}
+                  onChange={(event) => setCreateProjectName(event.target.value)}
+                  placeholder="e.g., Winter Festive '26"
+                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-4 py-2.5 text-sm text-[#141413] focus:outline-none focus:border-[#141413]"
+                  autoFocus
+                />
+              </div>
+              {createProjectError && (
+                <p className="text-xs text-[#991B1B]">{createProjectError}</p>
+              )}
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={isCreatingProject}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors disabled:opacity-60"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {isCreatingProject ? 'Creating…' : 'Create project'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateProjectOpen(false)}
+                  className="px-4 py-2.5 text-xs font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:border-[#141413] transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+          {!createProjectOpen && activeTab === 'dashboard' && (
             <DashboardView
               projects={projects}
               products={products}
               generatedImages={generatedImages}
               postDrafts={postDrafts}
               onNavigate={navigateTo}
+              onCreateProject={startCreateProject}
+              onUploadMore={openCatalogue}
               onSelectProductForStudio={handleOpenProductStudio}
-              onOpenProject={() => navigateTo('projects')}
+              onOpenProject={openProject}
               onCompareImage={(img) => {
                 setModalImage(img);
                 setModalMode('compare');
@@ -792,11 +938,11 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'new-project' && (
+          {!createProjectOpen && activeTab === 'new-project' && activeProject && (
             <NewProjectView
-              detectedProducts={products}
+              detectedProducts={products.filter((product) => product.projectId === activeProject.id)}
               cataloguePages={cataloguePages}
-              projectName={newProjectTitle}
+              projectName={newProjectTitle || activeProject.name}
               onProjectNameChange={setNewProjectTitle}
               onUploadCatalogue={handleUploadCatalogue}
               onManualExtractProduct={handleManualExtractProduct}
@@ -806,7 +952,26 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'workspace' && activeProduct && (
+          {!createProjectOpen && activeTab === 'new-project' && !activeProject && (
+            <div className="border border-[#E2DFD7] bg-white p-8">
+              <h1 className="font-editorial text-3xl font-semibold text-[#141413]">
+                Open a project first
+              </h1>
+              <p className="mt-2 text-sm text-[#57554E]">
+                Create a project, then upload a PDF or garment photos.
+              </p>
+              <button
+                type="button"
+                onClick={startCreateProject}
+                className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Project
+              </button>
+            </div>
+          )}
+
+          {!createProjectOpen && activeTab === 'workspace' && activeProduct && (
             <ProductWorkspaceView
               product={activeProduct}
               allProducts={products}
@@ -816,22 +981,22 @@ export default function App() {
               onChangeConfig={setShootConfig}
               onGenerateShoot={handleStartGenerateShoot}
               onAnalyzeGarment={handleAnalyzeGarment}
-              onBackToCatalogue={() => navigateTo('new-project')}
+              onBackToCatalogue={openCatalogue}
             />
           )}
 
-          {activeTab === 'workspace' && !activeProduct && (
+          {!createProjectOpen && activeTab === 'workspace' && !activeProduct && (
             <div className="border border-[#E2DFD7] bg-white p-8">
               <h1 className="font-editorial text-3xl font-semibold text-[#141413]">
                 No garment selected
               </h1>
               <p className="mt-2 text-sm text-[#57554E]">
-                Upload a catalogue or garment photo, then open a product to start a shoot.
+                Create a project, then upload a PDF or garment photos.
               </p>
             </div>
           )}
 
-          {activeTab === 'generating' && activeProduct && (
+          {!createProjectOpen && activeTab === 'generating' && activeProduct && (
             <GenerationStateView
               product={activeProduct}
               config={shootConfig}
@@ -843,7 +1008,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'shoot-gallery' && (
+          {!createProjectOpen && activeTab === 'shoot-gallery' && (
             <ShootGalleryView
               images={generatedImages}
               activeProduct={activeProduct}
@@ -864,7 +1029,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'post-builder' && activeProduct && (
+          {!createProjectOpen && activeTab === 'post-builder' && activeProduct && (
             <InstagramPostBuilderView
               selectedImages={selectedCarouselImages}
               allGeneratedImages={generatedImages}
@@ -875,7 +1040,8 @@ export default function App() {
             />
           )}
 
-          {(activeTab === 'projects' ||
+          {!createProjectOpen &&
+            (activeTab === 'projects' ||
             activeTab === 'products' ||
             activeTab === 'shoots' ||
             activeTab === 'posts') && (
@@ -887,7 +1053,8 @@ export default function App() {
               generatedImages={generatedImages}
               postDrafts={postDrafts}
               onSwitchSubTab={(sub) => navigateTo(sub)}
-              onNavigate={navigateTo}
+              onCreateProject={startCreateProject}
+              onOpenProject={openProject}
               onSelectProductForStudio={handleOpenProductStudio}
               onOpenShootInGallery={(shoot) => {
                 const prod = products.find((p) => p.id === shoot.productId);
@@ -899,7 +1066,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'settings' && (
+          {!createProjectOpen && activeTab === 'settings' && (
             <SettingsView runtimeStatus={runtimeStatus} />
           )}
         </main>

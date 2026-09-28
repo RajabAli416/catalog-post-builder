@@ -324,8 +324,7 @@ export function createApp() {
     const name = sanitizeText(req.body?.name, 160) || 'Untitled Seasonal Collection';
     const sourceType =
       req.body?.sourceType === 'Garment Images' ? 'Garment Images' : 'Catalogue PDF';
-    const sourceFileName =
-      sanitizeText(req.body?.sourceFileName, 200) || 'Seasonal_Catalogue.pdf';
+    const sourceFileName = sanitizeText(req.body?.sourceFileName, 200);
 
     const newProject: StudioProject = {
       id: `proj-${Date.now()}`,
@@ -370,13 +369,17 @@ export function createApp() {
     async (req, res) => {
       try {
         const projectId = sanitizeText(req.params.id, 80);
-        let project = await studioRepository.getProject(projectId);
+        const project = await studioRepository.getProject(projectId);
+        if (!project) {
+          res.status(404).json({ error: 'Create a project before uploading a catalogue.' });
+          return;
+        }
 
         const sourceType: 'Catalogue PDF' | 'Garment Images' =
           req.body?.sourceType === 'Garment Images' ? 'Garment Images' : 'Catalogue PDF';
         const projectName =
           sanitizeText(req.body?.projectName, 160) ||
-          project?.name ||
+          project.name ||
           'Untitled Collection';
 
         const files = (req.files as Express.Multer.File[]) || [];
@@ -401,22 +404,6 @@ export function createApp() {
             mimeType,
             buffer: file.buffer,
             publicUrl,
-          });
-        }
-
-        if (!project) {
-          project = await studioRepository.createProject({
-            id: projectId,
-            name: projectName,
-            seasonCode: 'FW26',
-            sourceType,
-            sourceFileName: uploadedFiles[0]?.originalName || 'catalogue-upload',
-            status: 'active',
-            createdAt: new Date().toISOString().slice(0, 10),
-            updatedAt: 'Just now',
-            productIds: [],
-            shootIds: [],
-            coverImageUrl: '',
           });
         }
 
