@@ -930,6 +930,54 @@ function buildMasterFashionPrompt(params) {
       poseDesc: "sculptural side-angle stance with head turned subtly toward camera",
       cameraDesc: "eye-level editorial profile framing",
       compDesc: "sleeve border, shoulder tailoring, and side slit drape clearly visible"
+    },
+    "Sleeve close-up": {
+      shotDesc: "tight editorial close-up of the sleeve",
+      poseDesc: "arm gently bent so the sleeve falls naturally without hiding the craft",
+      cameraDesc: "macro fashion close-up, sharp on the sleeve surface",
+      compDesc: "sleeve embroidery, fabric, and seam construction fill the frame"
+    },
+    "Neckline close-up": {
+      shotDesc: "tight editorial close-up of the neckline",
+      poseDesc: "shoulders relaxed, chin slightly lifted so the neckline sits undistorted",
+      cameraDesc: "macro fashion close-up from the collarbone to the upper chest",
+      compDesc: "neckline shape, embroidery, and edge finishing are the only subject"
+    },
+    "Embroidery close-up": {
+      shotDesc: "macro close-up of the garment embroidery",
+      poseDesc: "still pose that presents the embroidered panel flat to the lens",
+      cameraDesc: "macro lens with shallow depth, focused on thread and motif",
+      compDesc: "stitch texture, motif placement, and thread color fill the frame"
+    },
+    "Print / pattern close-up": {
+      shotDesc: "macro close-up of the garment print or pattern",
+      poseDesc: "fabric held or worn so the repeat lies flat and readable",
+      cameraDesc: "straight-on macro framing of the printed surface",
+      compDesc: "pattern scale, repeat, and color placement are clearly readable"
+    },
+    "Dupatta close-up": {
+      shotDesc: "close-up of the dupatta drape and border",
+      poseDesc: "dupatta falls naturally over one shoulder with the border visible",
+      cameraDesc: "close editorial framing on the dupatta fabric and edge",
+      compDesc: "dupatta weave, border, and drape are the subject, not the full outfit"
+    },
+    "Fabric texture": {
+      shotDesc: "extreme close-up of the fabric texture",
+      poseDesc: "garment surface presented so weave and sheen are readable",
+      cameraDesc: "macro lens raking across the cloth",
+      compDesc: "weave, sheen, and hand of the fabric fill the frame"
+    },
+    "Cuff / border detail": {
+      shotDesc: "close-up of the cuff or border detail",
+      poseDesc: "wrist or hem turned just enough to show the border without folding the craft away",
+      cameraDesc: "macro editorial framing on the cuff or border edge",
+      compDesc: "border width, stitching, and trim are sharply visible"
+    },
+    "Trouser detail": {
+      shotDesc: "close-up of the trouser or lower-garment detail",
+      poseDesc: "standing or seated so the trouser drape and hem are undistorted",
+      cameraDesc: "close framing from knee or hip to the hem",
+      compDesc: "trouser cut, pleat or gather, and hem finish are the subject"
     }
   };
   const lightingByStyle = {
@@ -967,7 +1015,11 @@ Do not invent additional embroidery.
 Do not remove existing details.
 Do not alter the print or color scheme.
 
-Replace the original person completely with a fictional AI-generated model.
+If the reference already shows a person or fashion model wearing the garment, do not copy that person in any way. Do not reproduce their face, body, identity, pose, proportions, or styling. Replace them completely with a new fictional model.
+
+If the reference is a flat-lay or a dress form or dummy with no real person, still photograph the garment on a new fictional model. Do not invent a face that resembles anyone in the source, and do not copy the dummy.
+
+The garment itself stays unchanged.
 
 Create an original photograph with a different:
 
@@ -1202,7 +1254,15 @@ var ALLOWED_POSES = [
   "Walking",
   "Seated",
   "Detail portrait",
-  "Back/side angle"
+  "Back/side angle",
+  "Sleeve close-up",
+  "Neckline close-up",
+  "Embroidery close-up",
+  "Print / pattern close-up",
+  "Dupatta close-up",
+  "Fabric texture",
+  "Cuff / border detail",
+  "Trouser detail"
 ];
 var ALLOWED_BACKGROUNDS = [
   "Studio",
@@ -1631,10 +1691,7 @@ function createApp() {
       const aspectRatio = ALLOWED_RATIOS.includes(
         incomingConfig.aspectRatio
       ) ? incomingConfig.aspectRatio : DEFAULT_SHOOT_CONFIG.aspectRatio;
-      const validCounts = [1, 2, 4, 6];
-      const numberOfImages = validCounts.includes(
-        Number(incomingConfig.numberOfImages)
-      ) ? Number(incomingConfig.numberOfImages) : 4;
+      const numberOfImages = Math.max(1, poses.length);
       const sanitizedConfig = {
         model: {
           aiGenerated: true,
@@ -1657,14 +1714,12 @@ function createApp() {
         numberOfImages
       };
       const shootId = `shoot-${Date.now()}`;
-      const jobs = Array.from({ length: numberOfImages }).map(
-        (_, idx) => ({
-          id: `job-${shootId}-${idx + 1}`,
-          shootId,
-          shotType: poses[idx % poses.length],
-          status: "Queued"
-        })
-      );
+      const jobs = poses.map((shotType, idx) => ({
+        id: `job-${shootId}-${idx + 1}`,
+        shootId,
+        shotType,
+        status: "Queued"
+      }));
       const newShoot = {
         id: shootId,
         projectId: product.projectId,

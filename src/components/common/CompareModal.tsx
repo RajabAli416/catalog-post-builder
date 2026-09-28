@@ -27,6 +27,14 @@ const ALL_POSES: ShotPoseType[] = [
   'Seated',
   'Detail portrait',
   'Back/side angle',
+  'Sleeve close-up',
+  'Neckline close-up',
+  'Embroidery close-up',
+  'Print / pattern close-up',
+  'Dupatta close-up',
+  'Fabric texture',
+  'Cuff / border detail',
+  'Trouser detail',
 ];
 
 const ALL_STYLES: ShootStyleId[] = [

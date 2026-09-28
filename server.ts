@@ -7,7 +7,6 @@ import {
   BackgroundType,
   CatalogueProduct,
   GeneratedShootImage,
-  ImageCountOption,
   InstagramPostDraft,
   ShootConfiguration,
   ShootShotJob,
@@ -72,6 +71,14 @@ const ALLOWED_POSES: ShotPoseType[] = [
   'Seated',
   'Detail portrait',
   'Back/side angle',
+  'Sleeve close-up',
+  'Neckline close-up',
+  'Embroidery close-up',
+  'Print / pattern close-up',
+  'Dupatta close-up',
+  'Fabric texture',
+  'Cuff / border detail',
+  'Trouser detail',
 ];
 
 const ALLOWED_BACKGROUNDS: BackgroundType[] = [
@@ -587,12 +594,7 @@ export function createApp() {
         ? (incomingConfig.aspectRatio as AspectRatioType)
         : DEFAULT_SHOOT_CONFIG.aspectRatio;
 
-      const validCounts: ImageCountOption[] = [1, 2, 4, 6];
-      const numberOfImages: ImageCountOption = validCounts.includes(
-        Number(incomingConfig.numberOfImages) as ImageCountOption
-      )
-        ? (Number(incomingConfig.numberOfImages) as ImageCountOption)
-        : 4;
+      const numberOfImages = Math.max(1, poses.length);
 
       const sanitizedConfig: ShootConfiguration = {
         model: {
@@ -632,14 +634,12 @@ export function createApp() {
       const shootId = `shoot-${Date.now()}`;
 
       // Phase 2E: Create separate generation jobs for each requested shot
-      const jobs: ShootShotJob[] = Array.from({ length: numberOfImages }).map(
-        (_, idx) => ({
-          id: `job-${shootId}-${idx + 1}`,
-          shootId,
-          shotType: poses[idx % poses.length],
-          status: 'Queued',
-        })
-      );
+      const jobs: ShootShotJob[] = poses.map((shotType, idx) => ({
+        id: `job-${shootId}-${idx + 1}`,
+        shootId,
+        shotType,
+        status: 'Queued',
+      }));
 
       const newShoot: StudioShoot = {
         id: shootId,

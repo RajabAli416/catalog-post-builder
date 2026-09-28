@@ -15,7 +15,6 @@ import {
   AspectRatioType,
   BackgroundType,
   CatalogueProduct,
-  ImageCountOption,
   ShootConfiguration,
   ShotPoseType,
 } from '../../types/studio';
@@ -34,13 +33,24 @@ interface ProductWorkspaceViewProps {
   onBackToCatalogue: () => void;
 }
 
-const ALL_POSES: ShotPoseType[] = [
+const FRAMING_POSES: ShotPoseType[] = [
   'Full body',
   '3/4 standing',
   'Walking',
   'Seated',
   'Detail portrait',
   'Back/side angle',
+];
+
+const DETAIL_POSES: ShotPoseType[] = [
+  'Sleeve close-up',
+  'Neckline close-up',
+  'Embroidery close-up',
+  'Print / pattern close-up',
+  'Dupatta close-up',
+  'Fabric texture',
+  'Cuff / border detail',
+  'Trouser detail',
 ];
 
 const ALL_BACKGROUNDS: BackgroundType[] = [
@@ -56,8 +66,6 @@ const ALL_ASPECT_RATIOS: AspectRatioType[] = [
   'Square 1:1',
   'Story 9:16',
 ];
-
-const IMAGE_COUNTS: ImageCountOption[] = [1, 2, 4, 6];
 
 export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
   product,
@@ -88,7 +96,11 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
     const nextPoses = exists
       ? config.poses.filter((p) => p !== pose)
       : [...config.poses, pose];
-    onChangeConfig({ ...config, poses: nextPoses });
+    onChangeConfig({
+      ...config,
+      poses: nextPoses,
+      numberOfImages: nextPoses.length,
+    });
   };
 
   const analysis = product.garmentAnalysis;
@@ -147,8 +159,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
             className="flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            Generate Shoot ({config.numberOfImages}{' '}
-            {config.numberOfImages === 1 ? 'Frame' : 'Frames'})
+            Generate Shoot ({config.poses.length}{' '}
+            {config.poses.length === 1 ? 'Frame' : 'Frames'})
           </button>
         </div>
       </div>
@@ -558,7 +570,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                   03. Pose & Camera Framing
                 </h2>
                 <p className="text-xs text-muted mt-0.5">
-                  Select multiple angles — each shot executes as an independent generation job
+                  Each selected angle becomes one picture.
                 </p>
               </div>
               <span className="text-xs font-mono text-muted tabular-nums">
@@ -566,35 +578,69 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {ALL_POSES.map((pose) => {
-                const active = config.poses.includes(pose);
-                return (
-                  <button
-                    key={pose}
-                    type="button"
-                    onClick={() => togglePose(pose)}
-                    className={`p-3.5 border text-left transition-colors flex items-center justify-between gap-2 ${
-                      active
-                        ? 'bg-ink text-white border-ink'
-                        : 'bg-canvas text-ink border-line-strong hover:border-ink'
-                    }`}
-                  >
-                    <span className="text-xs font-medium whitespace-nowrap">
-                      {pose}
-                    </span>
-                    <div
-                      className={`w-4 h-4 border flex items-center justify-center shrink-0 ${
-                        active
-                          ? 'border-white bg-white text-ink'
-                          : 'border-faint'
-                      }`}
-                    >
-                      {active && <Check className="w-3 h-3" />}
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xs font-medium text-ink mb-2">Framing</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {FRAMING_POSES.map((pose) => {
+                    const active = config.poses.includes(pose);
+                    return (
+                      <button
+                        key={pose}
+                        type="button"
+                        onClick={() => togglePose(pose)}
+                        className={`p-3.5 border text-left transition-colors flex items-center justify-between gap-2 ${
+                          active
+                            ? 'bg-ink text-white border-ink'
+                            : 'bg-canvas text-ink border-line-strong hover:border-ink'
+                        }`}
+                      >
+                        <span className="text-xs font-medium">{pose}</span>
+                        <div
+                          className={`w-4 h-4 border flex items-center justify-center shrink-0 ${
+                            active
+                              ? 'border-white bg-white text-ink'
+                              : 'border-faint'
+                          }`}
+                        >
+                          {active && <Check className="w-3 h-3" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xs font-medium text-ink mb-2">Detail shots</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {DETAIL_POSES.map((pose) => {
+                    const active = config.poses.includes(pose);
+                    return (
+                      <button
+                        key={pose}
+                        type="button"
+                        onClick={() => togglePose(pose)}
+                        className={`p-3.5 border text-left transition-colors flex items-center justify-between gap-2 ${
+                          active
+                            ? 'bg-ink text-white border-ink'
+                            : 'bg-canvas text-ink border-line-strong hover:border-ink'
+                        }`}
+                      >
+                        <span className="text-xs font-medium">{pose}</span>
+                        <div
+                          className={`w-4 h-4 border flex items-center justify-center shrink-0 ${
+                            active
+                              ? 'border-white bg-white text-ink'
+                              : 'border-faint'
+                          }`}
+                        >
+                          {active && <Check className="w-3 h-3" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </section>
 
@@ -652,13 +698,12 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               )}
             </div>
 
-            {/* Aspect Ratio & Number of Images */}
-            <div className="pt-5 border-t border-line grid grid-cols-1 md:grid-cols-12 gap-6">
-              <div className="md:col-span-7">
-                <span className="block text-xs font-medium text-ink mb-2">
-                  05. Aspect Ratio
-                </span>
-                <div className="grid grid-cols-3 gap-2.5">
+            {/* Aspect Ratio */}
+            <div className="pt-5 border-t border-line">
+              <span className="block text-xs font-medium text-ink mb-2">
+                05. Aspect Ratio
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {ALL_ASPECT_RATIOS.map((ratio) => (
                     <button
                       key={ratio}
@@ -676,31 +721,6 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                     </button>
                   ))}
                 </div>
-              </div>
-
-              <div className="md:col-span-5">
-                <span className="block text-xs font-medium text-ink mb-2">
-                  06. Number of Separate Shot Jobs
-                </span>
-                <div className="grid grid-cols-4 gap-2">
-                  {IMAGE_COUNTS.map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() =>
-                        onChangeConfig({ ...config, numberOfImages: num })
-                      }
-                      className={`py-2.5 text-xs font-mono tabular-nums font-medium border transition-colors whitespace-nowrap ${
-                        config.numberOfImages === num
-                          ? 'bg-ink text-white border-ink'
-                          : 'bg-canvas text-ink border-line-strong hover:border-ink'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Prominent Generate Shoot Footer CTA */}
@@ -709,7 +729,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                 <span className="font-medium text-ink">
                   Ready to compose:
                 </span>{' '}
-                {config.numberOfImages} separate shot jobs · {config.shootStyle} ·{' '}
+                {config.poses.length}{' '}
+                {config.poses.length === 1 ? 'frame' : 'frames'}, one per selected angle · {config.shootStyle} ·{' '}
                 {config.aspectRatio}
               </div>
 
@@ -719,7 +740,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                 className="flex items-center justify-center gap-2.5 px-8 py-3.5 text-sm font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
               >
                 <Sparkles className="w-4 h-4" />
-                Generate Shoot
+                Generate Shoot ({config.poses.length}{' '}
+                {config.poses.length === 1 ? 'Frame' : 'Frames'})
               </button>
             </div>
           </section>

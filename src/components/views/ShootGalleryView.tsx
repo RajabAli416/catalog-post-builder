@@ -164,6 +164,14 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
               'Walking',
               'Seated',
               'Back/side angle',
+              'Sleeve close-up',
+              'Neckline close-up',
+              'Embroidery close-up',
+              'Print / pattern close-up',
+              'Dupatta close-up',
+              'Fabric texture',
+              'Cuff / border detail',
+              'Trouser detail',
             ] as const
           ).map((pose) => (
             <button

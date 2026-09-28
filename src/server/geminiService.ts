@@ -596,6 +596,54 @@ export function buildMasterFashionPrompt(params: {
       cameraDesc: 'eye-level editorial profile framing',
       compDesc: 'sleeve border, shoulder tailoring, and side slit drape clearly visible',
     },
+    'Sleeve close-up': {
+      shotDesc: 'tight editorial close-up of the sleeve',
+      poseDesc: 'arm gently bent so the sleeve falls naturally without hiding the craft',
+      cameraDesc: 'macro fashion close-up, sharp on the sleeve surface',
+      compDesc: 'sleeve embroidery, fabric, and seam construction fill the frame',
+    },
+    'Neckline close-up': {
+      shotDesc: 'tight editorial close-up of the neckline',
+      poseDesc: 'shoulders relaxed, chin slightly lifted so the neckline sits undistorted',
+      cameraDesc: 'macro fashion close-up from the collarbone to the upper chest',
+      compDesc: 'neckline shape, embroidery, and edge finishing are the only subject',
+    },
+    'Embroidery close-up': {
+      shotDesc: 'macro close-up of the garment embroidery',
+      poseDesc: 'still pose that presents the embroidered panel flat to the lens',
+      cameraDesc: 'macro lens with shallow depth, focused on thread and motif',
+      compDesc: 'stitch texture, motif placement, and thread color fill the frame',
+    },
+    'Print / pattern close-up': {
+      shotDesc: 'macro close-up of the garment print or pattern',
+      poseDesc: 'fabric held or worn so the repeat lies flat and readable',
+      cameraDesc: 'straight-on macro framing of the printed surface',
+      compDesc: 'pattern scale, repeat, and color placement are clearly readable',
+    },
+    'Dupatta close-up': {
+      shotDesc: 'close-up of the dupatta drape and border',
+      poseDesc: 'dupatta falls naturally over one shoulder with the border visible',
+      cameraDesc: 'close editorial framing on the dupatta fabric and edge',
+      compDesc: 'dupatta weave, border, and drape are the subject, not the full outfit',
+    },
+    'Fabric texture': {
+      shotDesc: 'extreme close-up of the fabric texture',
+      poseDesc: 'garment surface presented so weave and sheen are readable',
+      cameraDesc: 'macro lens raking across the cloth',
+      compDesc: 'weave, sheen, and hand of the fabric fill the frame',
+    },
+    'Cuff / border detail': {
+      shotDesc: 'close-up of the cuff or border detail',
+      poseDesc: 'wrist or hem turned just enough to show the border without folding the craft away',
+      cameraDesc: 'macro editorial framing on the cuff or border edge',
+      compDesc: 'border width, stitching, and trim are sharply visible',
+    },
+    'Trouser detail': {
+      shotDesc: 'close-up of the trouser or lower-garment detail',
+      poseDesc: 'standing or seated so the trouser drape and hem are undistorted',
+      cameraDesc: 'close framing from knee or hip to the hem',
+      compDesc: 'trouser cut, pleat or gather, and hem finish are the subject',
+    },
   };
 
   const lightingByStyle: Record<ShootStyleId, string> = {
@@ -638,7 +686,11 @@ Do not invent additional embroidery.
 Do not remove existing details.
 Do not alter the print or color scheme.
 
-Replace the original person completely with a fictional AI-generated model.
+If the reference already shows a person or fashion model wearing the garment, do not copy that person in any way. Do not reproduce their face, body, identity, pose, proportions, or styling. Replace them completely with a new fictional model.
+
+If the reference is a flat-lay or a dress form or dummy with no real person, still photograph the garment on a new fictional model. Do not invent a face that resembles anyone in the source, and do not copy the dummy.
+
+The garment itself stays unchanged.
 
 Create an original photograph with a different:
 

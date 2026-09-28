@@ -27,7 +27,15 @@ export type ShotPoseType =
   | 'Walking'
   | 'Seated'
   | 'Detail portrait'
-  | 'Back/side angle';
+  | 'Back/side angle'
+  | 'Sleeve close-up'
+  | 'Neckline close-up'
+  | 'Embroidery close-up'
+  | 'Print / pattern close-up'
+  | 'Dupatta close-up'
+  | 'Fabric texture'
+  | 'Cuff / border detail'
+  | 'Trouser detail';
 
 export type BackgroundType =
   | 'Studio'
@@ -40,8 +48,6 @@ export type AspectRatioType =
   | 'Instagram Portrait 4:5'
   | 'Square 1:1'
   | 'Story 9:16';
-
-export type ImageCountOption = 1 | 2 | 4 | 6;
 
 export interface GarmentAnalysis {
   garmentCategory: string;
@@ -80,7 +86,7 @@ export interface ShootConfiguration {
   background: BackgroundType;
   customBackgroundNote: string;
   aspectRatio: AspectRatioType;
-  numberOfImages: ImageCountOption;
+  numberOfImages: number;
 }
 
 export interface CataloguePagePlate {
@@ -166,7 +172,7 @@ export interface StudioShoot {
     poses: ShotPoseType[];
     background: BackgroundType;
     customBackgroundNote: string;
-    numberOfImages: ImageCountOption;
+    numberOfImages: number;
   }; // Phase 2A
   aspectRatio: AspectRatioType; // Phase 2A
   status: GenerationStageStatus; // Phase 2A
