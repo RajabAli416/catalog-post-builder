@@ -22,6 +22,7 @@ import {
 } from '../../types/studio';
 import { generateInstagramCopyApi } from '../../services/studioApi';
 import { FashionImage } from '../common/FashionImage';
+import { CopyButton } from '../common/CopyButton';
 
 interface InstagramPostBuilderViewProps {
   selectedImages: GeneratedShootImage[];
@@ -65,6 +66,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [customHashtagInput, setCustomHashtagInput] = useState('');
   const [cta, setCta] = useState('');
+  const [copyPromptUsed, setCopyPromptUsed] = useState('');
   const [copyError, setCopyError] = useState<string | null>(null);
   const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState(false);
@@ -75,6 +77,9 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
     Math.max(0, orderedCarousel.length - 1)
   );
   const currentPreviewImage = orderedCarousel[safeSlideIndex] || orderedCarousel[0];
+  const postText = [productTitle, shortDescription, caption, cta, hashtags.join(' ')]
+    .filter((part) => part.trim())
+    .join('\n\n');
 
   const handleMoveSlide = (index: number, direction: -1 | 1) => {
     const targetIndex = index + direction;
@@ -130,6 +135,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
       setCaption(fresh.caption);
       setHashtags(fresh.hashtags);
       setCta(fresh.cta);
+      setCopyPromptUsed(fresh.copyPromptUsed || '');
       setCopyError(null);
     } catch (err) {
       setCopyError(
@@ -173,6 +179,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
       captionTone,
       hashtags,
       cta,
+      copyPromptUsed,
       aspectRatio: 'Instagram Portrait 4:5',
       carouselImageIds: ids,
       selectedImages: ids,
@@ -191,42 +198,42 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
   return (
     <div className="space-y-8 pb-16">
       {/* Header */}
-      <div className="border-b border-[#E6E4DD] pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="border-b border-line pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={onBackToGallery}
-            className="p-2 bg-white border border-[#D6D3C9] text-[#141413] hover:border-[#141413] transition-colors"
+            className="p-2 bg-white border border-line-strong text-ink hover:border-ink transition-colors"
             aria-label="Back to shoot gallery"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2 text-xs text-[#6E6B62]">
+            <div className="flex items-center gap-2 text-xs text-muted">
               <span>Instagram Campaign Studio</span>
               <span aria-hidden="true">·</span>
               <span>4:5 Editorial Carousel</span>
               <span aria-hidden="true">·</span>
               <span className="font-mono">{activeProduct.sku}</span>
             </div>
-            <h1 className="font-editorial text-3xl font-semibold text-[#141413]">
+            <h1 className="font-editorial text-3xl font-semibold text-ink">
               Instagram Post Builder
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={onBackToGallery}
-            className="px-4 py-2.5 text-xs font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:border-[#141413] transition-colors whitespace-nowrap"
+            className="px-4 py-2.5 text-xs font-medium text-ink bg-white border border-line-strong hover:border-ink transition-colors whitespace-nowrap"
           >
             Modify Selected Frames
           </button>
           <button
             type="button"
             onClick={handleSavePost}
-            className="flex items-center gap-2 px-6 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
+            className="flex items-center gap-2 px-6 py-2.5 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
           >
             {saveFeedback ? (
               <>
@@ -248,23 +255,23 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
         {/* LEFT COLUMN: Live Instagram 4:5 Preview & Carousel Sequencer */}
         <div className="lg:col-span-5 space-y-6">
           {/* Simulated Instagram 4:5 Feed Card */}
-          <div className="bg-white border border-[#E2DFD7] max-w-md mx-auto">
+          <div className="bg-white border border-line max-w-md mx-auto">
             {/* IG Header */}
-            <div className="px-4 py-3 flex items-center justify-between border-b border-[#E6E4DD]">
+            <div className="px-4 py-3 flex items-center justify-between border-b border-line">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#141413] text-[#FAF9F5] flex items-center justify-center font-editorial text-sm font-semibold">
-                  AN
+                <div className="w-8 h-8 rounded-full bg-ink text-canvas flex items-center justify-center font-editorial text-sm font-semibold">
+                  V
                 </div>
                 <div>
-                  <span className="block text-xs font-semibold text-[#141413] leading-none">
-                    ateliernoor.official
+                  <span className="block text-xs font-semibold text-ink leading-none">
+                    @veyra
                   </span>
-                  <span className="block text-[11px] text-[#6E6B62] mt-0.5">
+                  <span className="block text-[11px] text-muted mt-0.5">
                     Lahore · Editorial Lookbook
                   </span>
                 </div>
               </div>
-              <span className="text-[11px] font-mono text-[#6E6B62] tabular-nums">
+              <span className="text-[11px] font-mono text-muted tabular-nums">
                 {safeSlideIndex + 1} / {orderedCarousel.length}
               </span>
             </div>
@@ -296,7 +303,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                       )
                     }
                     aria-label="Previous slide"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 text-[#141413] flex items-center justify-center hover:bg-white transition-colors"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 text-ink flex items-center justify-center hover:bg-white transition-colors"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -308,7 +315,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                       )
                     }
                     aria-label="Next slide"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 text-[#141413] flex items-center justify-center hover:bg-white transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 text-ink flex items-center justify-center hover:bg-white transition-colors"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -319,7 +326,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
             {/* IG Interaction Bar + Carousel Dots */}
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 text-[#141413]">
+                <div className="flex items-center gap-4 text-ink">
                   <Heart className="w-5 h-5" />
                   <MessageCircle className="w-5 h-5" />
                   <Send className="w-5 h-5" />
@@ -335,30 +342,30 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                       aria-label={`Go to slide ${idx + 1}`}
                       className={`h-1.5 transition-all ${
                         idx === safeSlideIndex
-                          ? 'w-4 bg-[#141413]'
-                          : 'w-1.5 bg-[#D6D3C9]'
+                          ? 'w-4 bg-ink'
+                          : 'w-1.5 bg-line-strong'
                       }`}
                     />
                   ))}
                 </div>
 
-                <Bookmark className="w-5 h-5 text-[#141413]" />
+                <Bookmark className="w-5 h-5 text-ink" />
               </div>
 
               {/* Live Caption Preview */}
-              <div className="text-xs text-[#141413] space-y-1.5 leading-relaxed">
+              <div className="text-xs text-ink space-y-1.5 leading-relaxed">
                 <p>
                   <span className="font-semibold mr-1.5">
-                    ateliernoor.official
+                    @veyra
                   </span>
                   <span className="font-medium">{productTitle}</span> —{' '}
                   {shortDescription}
                 </p>
-                <p className="text-[#57554E] whitespace-pre-line line-clamp-4">
+                <p className="text-muted whitespace-pre-line line-clamp-4">
                   {caption}
                 </p>
-                <p className="text-[#141413] font-medium pt-1">{cta}</p>
-                <p className="text-[#6E6B62] pt-1">
+                <p className="text-ink font-medium pt-1">{cta}</p>
+                <p className="text-muted pt-1">
                   {hashtags.join(' ')}
                 </p>
               </div>
@@ -366,17 +373,17 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
           </div>
 
           {/* Carousel Sequencer & Cover Image Selector */}
-          <div className="bg-white border border-[#E2DFD7] p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E6E4DD] pb-3">
+          <div className="bg-white border border-line p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
               <div>
-                <h2 className="font-editorial text-xl font-semibold text-[#141413]">
+                <h2 className="font-editorial text-xl font-semibold text-ink">
                   Carousel Sequence & Cover
                 </h2>
-                <p className="text-xs text-[#6E6B62]">
+                <p className="text-xs text-muted">
                   Reorder frames or set the lead cover plate
                 </p>
               </div>
-              <span className="text-xs font-mono text-[#6E6B62] tabular-nums">
+              <span className="text-xs font-mono text-muted tabular-nums">
                 {orderedCarousel.length} slides
               </span>
             </div>
@@ -387,18 +394,18 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                   key={img.id}
                   className={`p-2.5 border flex items-center justify-between gap-3 ${
                     index === safeSlideIndex
-                      ? 'border-[#141413] bg-[#FAF9F5]'
-                      : 'border-[#E6E4DD] bg-white'
+                      ? 'border-ink bg-canvas'
+                      : 'border-line bg-white'
                   }`}
                 >
                   <div
                     onClick={() => setActiveSlideIndex(index)}
                     className="flex items-center gap-3 cursor-pointer min-w-0"
                   >
-                    <span className="text-xs font-mono text-[#6E6B62] w-5 tabular-nums">
+                    <span className="text-xs font-mono text-muted w-5 tabular-nums">
                       0{index + 1}
                     </span>
-                    <div className="w-10 h-12 shrink-0 border border-[#E2DFD7] overflow-hidden">
+                    <div className="w-10 h-12 shrink-0 border border-line overflow-hidden">
                       <FashionImage
                         src={img.imageUrl}
                         alt={img.shotType}
@@ -408,16 +415,16 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-medium text-[#141413] truncate">
+                        <span className="text-xs font-medium text-ink truncate">
                           {img.shotType}
                         </span>
                         {index === 0 && (
-                          <span className="text-[11px] font-mono text-[#6E6B62]">
+                          <span className="text-[11px] font-mono text-muted">
                             · Cover
                           </span>
                         )}
                       </div>
-                      <span className="block text-[11px] text-[#78756C] truncate">
+                      <span className="block text-[11px] text-faint truncate">
                         {img.style}
                       </span>
                     </div>
@@ -429,7 +436,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                         type="button"
                         onClick={() => handleSetAsCover(img.id)}
                         title="Set as Cover Image"
-                        className="px-2 py-1 text-[11px] font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:border-[#141413] transition-colors whitespace-nowrap"
+                        className="px-2 py-1 text-[11px] font-medium text-ink bg-white border border-line-strong hover:border-ink transition-colors whitespace-nowrap"
                       >
                         Set Cover
                       </button>
@@ -439,7 +446,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                       disabled={index === 0}
                       onClick={() => handleMoveSlide(index, -1)}
                       aria-label="Move slide earlier"
-                      className="p-1.5 text-[#57554E] hover:text-[#141413] disabled:opacity-30"
+                      className="p-1.5 text-muted hover:text-ink disabled:opacity-30"
                     >
                       <ArrowLeft className="w-3.5 h-3.5" />
                     </button>
@@ -448,7 +455,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                       disabled={index === orderedCarousel.length - 1}
                       onClick={() => handleMoveSlide(index, 1)}
                       aria-label="Move slide later"
-                      className="p-1.5 text-[#57554E] hover:text-[#141413] disabled:opacity-30"
+                      className="p-1.5 text-muted hover:text-ink disabled:opacity-30"
                     >
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
@@ -457,7 +464,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                         type="button"
                         onClick={() => handleRemoveFromCarousel(img.id)}
                         aria-label="Remove slide"
-                        className="p-1.5 text-[#78756C] hover:text-[#991B1B]"
+                        className="p-1.5 text-faint hover:text-[#991B1B]"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -468,8 +475,8 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
             </div>
 
             {unselectedShootImages.length > 0 && (
-              <div className="pt-3 border-t border-[#E6E4DD]">
-                <span className="block text-xs text-[#6E6B62] mb-2">
+              <div className="pt-3 border-t border-line">
+                <span className="block text-xs text-muted mb-2">
                   Add More Frames from Shoot
                 </span>
                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -478,7 +485,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                       key={img.id}
                       type="button"
                       onClick={() => handleAddImageToCarousel(img.id)}
-                      className="group relative w-14 h-16 shrink-0 border border-[#D6D3C9] hover:border-[#141413] overflow-hidden"
+                      className="group relative w-14 h-16 shrink-0 border border-line-strong hover:border-ink overflow-hidden"
                       title={`Add ${img.shotType}`}
                     >
                       <FashionImage
@@ -501,13 +508,13 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
         {/* RIGHT COLUMN: Original Editorial Copy & Hashtag Studio */}
         <div className="lg:col-span-7 space-y-6">
           {/* Original Copy Tone & Generator Panel */}
-          <section className="bg-white border border-[#E2DFD7] p-6 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E6E4DD] pb-4">
+          <section className="bg-white border border-line p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
               <div>
-                <h2 className="font-editorial text-2xl font-semibold text-[#141413]">
+                <h2 className="font-editorial text-2xl font-semibold text-ink">
                   01. Original Editorial Copywriting
                 </h2>
-                <p className="text-xs text-[#6E6B62] mt-0.5">
+                <p className="text-xs text-muted mt-0.5">
                   Crafted from garment visual traits & shoot mood — never copied verbatim from raw catalogue specs
                 </p>
               </div>
@@ -516,7 +523,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                 type="button"
                 disabled={isGeneratingCopy}
                 onClick={() => handleRegenerateEditorialCopy(captionTone)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-[#141413] bg-[#FAF9F5] border border-[#D6D3C9] hover:border-[#141413] disabled:opacity-50 transition-colors whitespace-nowrap self-start sm:self-auto"
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-ink bg-canvas border border-line-strong hover:border-ink disabled:opacity-50 transition-colors whitespace-nowrap self-start sm:self-auto"
               >
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${isGeneratingCopy ? 'animate-spin' : ''}`}
@@ -530,7 +537,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
 
             {/* Tone Selector */}
             <div>
-              <span className="block text-xs font-medium text-[#141413] mb-2">
+              <span className="block text-xs font-medium text-ink mb-2">
                 Editorial Voice Preset
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -548,8 +555,8 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                     onClick={() => handleRegenerateEditorialCopy(tone)}
                     className={`py-2 px-3 text-xs font-medium border transition-colors whitespace-nowrap truncate ${
                       captionTone === tone
-                        ? 'bg-[#141413] text-white border-[#141413]'
-                        : 'bg-[#FAF9F5] text-[#141413] border-[#D6D3C9] hover:border-[#141413]'
+                        ? 'bg-ink text-white border-ink'
+                        : 'bg-canvas text-ink border-line-strong hover:border-ink'
                     }`}
                   >
                     {tone}
@@ -563,7 +570,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
               <div>
                 <label
                   htmlFor="ig-product-title"
-                  className="block text-xs font-medium text-[#141413] mb-1.5"
+                  className="block text-xs font-medium text-ink mb-1.5"
                 >
                   Editorial Product Title
                 </label>
@@ -572,14 +579,14 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                   type="text"
                   value={productTitle}
                   onChange={(e) => setProductTitle(e.target.value)}
-                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-3.5 py-2.5 text-sm text-[#141413] focus:outline-none focus:border-[#141413]"
+                  className="w-full bg-canvas border border-line-strong px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:border-ink"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="ig-short-desc"
-                  className="block text-xs font-medium text-[#141413] mb-1.5"
+                  className="block text-xs font-medium text-ink mb-1.5"
                 >
                   Short Editorial Lead-In
                 </label>
@@ -588,68 +595,86 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                   rows={2}
                   value={shortDescription}
                   onChange={(e) => setShortDescription(e.target.value)}
-                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] p-3 text-sm text-[#141413] focus:outline-none focus:border-[#141413] leading-relaxed"
+                  className="w-full bg-canvas border border-line-strong p-3 text-sm text-ink focus:outline-none focus:border-ink leading-relaxed"
                 />
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                   <label
                     htmlFor="ig-caption-body"
-                    className="text-xs font-medium text-[#141413]"
+                    className="text-xs font-medium text-ink"
                   >
                     Instagram Caption Body
                   </label>
-                  <span className="text-[11px] font-mono text-[#6E6B62] tabular-nums">
-                    {caption.length} chars
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-mono text-muted tabular-nums">
+                      {caption.length} chars
+                    </span>
+                    <CopyButton text={caption} label="Copy caption" />
+                    <CopyButton text={postText} label="Copy post" />
+                  </div>
                 </div>
                 <textarea
                   id="ig-caption-body"
                   rows={6}
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
-                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] p-3.5 text-sm text-[#141413] focus:outline-none focus:border-[#141413] leading-relaxed"
+                  className="w-full bg-canvas border border-line-strong p-3.5 text-sm text-ink focus:outline-none focus:border-ink leading-relaxed"
                 />
+                {copyPromptUsed && (
+                  <div className="mt-3 rounded-xl border border-line bg-canvas p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-medium text-ink">Prompt used</p>
+                      <CopyButton text={copyPromptUsed} label="Copy prompt" />
+                    </div>
+                    <p className="mt-2 max-h-36 overflow-y-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted">
+                      {copyPromptUsed}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Non-verbatim comparison strip */}
-            <div className="p-3.5 bg-[#FAF9F5] border border-[#E6E4DD] text-xs space-y-1">
-              <span className="block font-mono text-[11px] text-[#6E6B62]">
+            <div className="p-3.5 bg-canvas border border-line text-xs space-y-1">
+              <span className="block font-mono text-[11px] text-muted">
                 Source Catalogue Raw Spec (Excluded from Caption):
               </span>
-              <p className="font-mono text-[11px] text-[#78756C] line-through">
+              <p className="font-mono text-[11px] text-faint line-through">
                 {activeProduct.rawCatalogueText}
               </p>
             </div>
           </section>
 
           {/* 02. CTA & HASHTAG GENERATOR */}
-          <section className="bg-white border border-[#E2DFD7] p-6 space-y-5">
-            <div className="border-b border-[#E6E4DD] pb-3">
-              <h2 className="font-editorial text-2xl font-semibold text-[#141413]">
+          <section className="bg-white border border-line p-6 space-y-5">
+            <div className="border-b border-line pb-3">
+              <h2 className="font-editorial text-2xl font-semibold text-ink">
                 02. Call to Action & Curated Hashtags
               </h2>
-              <p className="text-xs text-[#6E6B62] mt-0.5">
+              <p className="text-xs text-muted mt-0.5">
                 Configure conversion messaging and South Asian luxury fashion discovery tags
               </p>
             </div>
 
             {/* Call to Action */}
             <div>
-              <label
-                htmlFor="ig-cta-input"
-                className="block text-xs font-medium text-[#141413] mb-1.5"
-              >
-                Call to Action (CTA)
-              </label>
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <label
+                  htmlFor="ig-cta-input"
+                  className="block text-xs font-medium text-ink"
+                >
+                  Call to action
+                </label>
+                <CopyButton text={cta} label="Copy call to action" />
+              </div>
               <input
                 id="ig-cta-input"
                 type="text"
                 value={cta}
                 onChange={(e) => setCta(e.target.value)}
-                className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-3.5 py-2.5 text-sm text-[#141413] focus:outline-none focus:border-[#141413]"
+                className="w-full bg-canvas border border-line-strong px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:border-ink"
               />
               <div className="mt-2 flex flex-wrap gap-2">
                 {CTA_PRESETS.map((presetCta, idx) => (
@@ -657,7 +682,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                     key={idx}
                     type="button"
                     onClick={() => setCta(presetCta)}
-                    className="px-2.5 py-1 text-[11px] bg-[#FAF9F5] border border-[#E2DFD7] text-[#57554E] hover:text-[#141413] hover:border-[#141413] transition-colors truncate max-w-full"
+                    className="px-2.5 py-1 text-[11px] bg-canvas border border-line text-muted hover:text-ink hover:border-ink transition-colors truncate max-w-full"
                   >
                     {presetCta}
                   </button>
@@ -667,15 +692,17 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
 
             {/* Hashtag Set */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-[#141413]">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium text-ink">
                   Hashtag Set ({hashtags.length} tags)
                 </span>
-                <button
+                <div className="flex flex-wrap items-center gap-2">
+                  <CopyButton text={hashtags.join(' ')} label="Copy hashtags" />
+                  <button
                   type="button"
                   onClick={() =>
                     setHashtags([
-                      '#AtelierNoor',
+                      '#Veyra',
                       '#PakistaniCouture',
                       '#SouthAsianFashion',
                       '#LuxuryPretEdit',
@@ -685,14 +712,15 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                       '#EditorialCampaign',
                     ])
                   }
-                  className="flex items-center gap-1 text-xs text-[#141413] hover:underline underline-offset-4 whitespace-nowrap"
+                  className="flex items-center gap-1 text-xs text-ink hover:underline underline-offset-4 whitespace-nowrap"
                 >
                   <Sparkles className="w-3 h-3" />
                   Refresh Curated Tags
                 </button>
+                </div>
               </div>
 
-              <div className="p-3.5 bg-[#FAF9F5] border border-[#D6D3C9] flex flex-wrap gap-2">
+              <div className="p-3.5 bg-canvas border border-line-strong flex flex-wrap gap-2">
                 {hashtags.map((tag) => (
                   <button
                     key={tag}
@@ -701,7 +729,7 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                       setHashtags(hashtags.filter((t) => t !== tag))
                     }
                     title="Click to remove hashtag"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#E2DFD7] text-xs font-mono text-[#141413] hover:border-[#991B1B] hover:text-[#991B1B] transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-line text-xs font-mono text-ink hover:border-[#991B1B] hover:text-[#991B1B] transition-colors whitespace-nowrap"
                   >
                     <span>{tag}</span>
                     <X className="w-3 h-3" />
@@ -715,11 +743,11 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
                   value={customHashtagInput}
                   onChange={(e) => setCustomHashtagInput(e.target.value)}
                   placeholder="Add custom hashtag (e.g. FestiveLookbook26)"
-                  className="flex-1 bg-[#FAF9F5] border border-[#D6D3C9] px-3 py-2 text-xs text-[#141413] focus:outline-none focus:border-[#141413]"
+                  className="flex-1 bg-canvas border border-line-strong px-3 py-2 text-xs text-ink focus:outline-none focus:border-ink"
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:border-[#141413] transition-colors whitespace-nowrap"
+                  className="px-4 py-2 text-xs font-medium text-ink bg-white border border-line-strong hover:border-ink transition-colors whitespace-nowrap"
                 >
                   + Add Tag
                 </button>
@@ -727,14 +755,14 @@ export const InstagramPostBuilderView: React.FC<InstagramPostBuilderViewProps> =
             </div>
 
             {/* Bottom Save Bar */}
-            <div className="pt-5 border-t border-[#E6E4DD] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <span className="text-xs text-[#6E6B62]">
+            <div className="pt-5 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <span className="text-xs text-muted">
                 Aspect Ratio: Instagram Portrait 4:5 (1080 × 1350 px)
               </span>
               <button
                 type="button"
                 onClick={handleSavePost}
-                className="flex items-center justify-center gap-2 px-8 py-3 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
+                className="flex items-center justify-center gap-2 px-8 py-3 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
               >
                 {saveFeedback ? (
                   <>

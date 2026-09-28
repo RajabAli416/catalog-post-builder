@@ -962,7 +962,7 @@ export async function startDevServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Atelier Noor server running on http://localhost:${PORT}`);
+    console.log(`Veyra server running on http://localhost:${PORT}`);
   });
 }
 

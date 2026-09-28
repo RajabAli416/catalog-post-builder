@@ -190,6 +190,7 @@ export interface InstagramPostDraft {
   captionTone: 'Editorial Storytelling' | 'Minimalist Luxury' | 'Festive Heritage' | 'Boutique Launch';
   hashtags: string[];
   cta: string;
+  copyPromptUsed?: string;
   aspectRatio: 'Instagram Portrait 4:5';
   carouselImageIds: string[];
   selectedImages: string[]; // Phase 2A alias

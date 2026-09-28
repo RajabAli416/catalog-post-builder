@@ -4,13 +4,24 @@
   --font-display: "Cormorant Garamond", Georgia, serif;
   --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-canvas: #f3efe8;
+  --color-card: #fffcf8;
+  --color-ink: #1a1814;
+  --color-muted: #6f6a63;
+  --color-faint: #8a847c;
+  --color-line: #e4ddd2;
+  --color-line-strong: #d4cbbe;
+  --color-wash: #ebe4da;
+  --color-accent: #8c3a4b;
+  --color-accent-hover: #6e2c3a;
+  --color-on-accent: #fff8f4;
 }
 
 @layer base {
   body {
     font-family: var(--font-sans);
-    background-color: #FAF9F5;
-    color: #141413;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
   }
 
   h1, h2, .font-editorial {
@@ -23,7 +34,13 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Custom subtle scrollbars for studio panels */
+@media (max-width: 1023px) {
+  button[aria-label] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -32,10 +49,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D6D3C9;
+  background: var(--color-line-strong);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #A8A498;
+  background: var(--color-faint);
 }
-

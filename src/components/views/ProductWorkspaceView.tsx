@@ -96,25 +96,25 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
   return (
     <div className="space-y-8 pb-16">
       {/* Top Workspace Header */}
-      <div className="border-b border-[#E6E4DD] pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="border-b border-line pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={onBackToCatalogue}
-            className="p-2 bg-white border border-[#D6D3C9] text-[#141413] hover:border-[#141413] transition-colors"
+            className="p-2 bg-white border border-line-strong text-ink hover:border-ink transition-colors"
             aria-label="Back to products"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2 text-xs text-[#6E6B62]">
+            <div className="flex items-center gap-2 text-xs text-muted">
               <span>Product Workspace</span>
               <span aria-hidden="true">·</span>
               <span className="font-mono">{product.sku}</span>
               <span aria-hidden="true">·</span>
               <span>{product.category}</span>
             </div>
-            <h1 className="font-editorial text-2xl md:text-3xl font-semibold text-[#141413]">
+            <h1 className="font-editorial text-2xl md:text-3xl font-semibold text-ink">
               {product.name}
             </h1>
           </div>
@@ -132,7 +132,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               const found = allProducts.find((p) => p.id === e.target.value);
               if (found) onSelectProduct(found);
             }}
-            className="bg-white border border-[#D6D3C9] px-3.5 py-2 text-xs font-medium text-[#141413] focus:outline-none focus:border-[#141413]"
+            className="bg-white border border-line-strong px-3.5 py-2 text-xs font-medium text-ink focus:outline-none focus:border-ink"
           >
             {allProducts.map((p) => (
               <option key={p.id} value={p.id}>
@@ -144,7 +144,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
           <button
             type="button"
             onClick={onGenerateShoot}
-            className="flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
+            className="flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
           >
             <Sparkles className="w-3.5 h-3.5" />
             Generate Shoot ({config.numberOfImages}{' '}
@@ -157,17 +157,17 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* LEFT: Large Garment Reference Plate + Structured Garment Analysis (Phase 2C) */}
         <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-4">
-          <div className="bg-white border border-[#E2DFD7] p-4">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#E6E4DD]">
-              <div className="flex items-center gap-2 text-xs text-[#141413] font-medium">
+          <div className="bg-white border border-line p-4">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-line">
+              <div className="flex items-center gap-2 text-xs text-ink font-medium">
                 <span>Garment Reference Plate</span>
-                <span aria-hidden="true" className="text-[#6E6B62]">·</span>
-                <span className="font-mono text-[#6E6B62]">{product.sku}</span>
+                <span aria-hidden="true" className="text-muted">·</span>
+                <span className="font-mono text-muted">{product.sku}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setZoomReference((z) => !z)}
-                className="flex items-center gap-1 text-xs text-[#57554E] hover:text-[#141413] transition-colors whitespace-nowrap"
+                className="flex items-center gap-1 text-xs text-muted hover:text-ink transition-colors whitespace-nowrap"
               >
                 {zoomReference ? (
                   <>
@@ -190,16 +190,16 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               cropVariant={zoomReference ? 'three-quarter' : 'full'}
             />
 
-            <div className="mt-4 pt-4 border-t border-[#E6E4DD] space-y-2">
+            <div className="mt-4 pt-4 border-t border-line space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6E6B62]">Textile & Craft</span>
-                <span className="text-[#141413] font-medium text-right">
+                <span className="text-muted">Textile & Craft</span>
+                <span className="text-ink font-medium text-right">
                   {product.fabricDetails}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6E6B62]">Multimodal Conditioning</span>
-                <span className="text-[#141413] font-mono text-[11px]">
+                <span className="text-muted">Multimodal Conditioning</span>
+                <span className="text-ink font-mono text-[11px]">
                   Reference Image + Vision JSON Attached
                 </span>
               </div>
@@ -207,20 +207,20 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
           </div>
 
           {/* Phase 2C: Structured Gemini Garment Analysis Panel */}
-          <div className="bg-white border border-[#E2DFD7] p-4 space-y-3">
+          <div className="bg-white border border-line p-4 space-y-3">
             <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => setExpandAnalysis((prev) => !prev)}
                 className="flex items-center gap-2 text-left"
               >
-                <span className="text-xs font-medium text-[#141413]">
+                <span className="text-xs font-medium text-ink">
                   Structured Garment Analysis
                 </span>
                 {expandAnalysis ? (
-                  <ChevronUp className="w-3.5 h-3.5 text-[#6E6B62]" />
+                  <ChevronUp className="w-3.5 h-3.5 text-muted" />
                 ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-[#6E6B62]" />
+                  <ChevronDown className="w-3.5 h-3.5 text-muted" />
                 )}
               </button>
 
@@ -228,7 +228,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                 type="button"
                 disabled={isAnalyzingGarment}
                 onClick={() => onAnalyzeGarment(product.id)}
-                className="flex items-center gap-1.5 text-[11px] font-mono text-[#57554E] hover:text-[#141413] disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 text-[11px] font-mono text-muted hover:text-ink disabled:opacity-50 transition-colors"
               >
                 <RefreshCw
                   className={`w-3 h-3 ${isAnalyzingGarment ? 'animate-spin' : ''}`}
@@ -238,48 +238,48 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
             </div>
 
             {isAnalyzingGarment ? (
-              <div className="py-6 flex flex-col items-center justify-center text-center bg-[#FAF9F5] border border-[#E6E4DD]">
-                <Loader2 className="w-4 h-4 text-[#141413] animate-spin mb-2" />
-                <span className="text-xs text-[#141413] font-medium">
+              <div className="py-6 flex flex-col items-center justify-center text-center bg-canvas border border-line">
+                <Loader2 className="w-4 h-4 text-ink animate-spin mb-2" />
+                <span className="text-xs text-ink font-medium">
                   Extracting garment geometry, colors & embroidery...
                 </span>
               </div>
             ) : analysis && expandAnalysis ? (
-              <div className="space-y-2.5 pt-2 border-t border-[#E6E4DD] text-xs">
-                <div className="grid grid-cols-1 gap-2 bg-[#FAF9F5] p-3 border border-[#E6E4DD]">
+              <div className="space-y-2.5 pt-2 border-t border-line text-xs">
+                <div className="grid grid-cols-1 gap-2 bg-canvas p-3 border border-line">
                   <div>
-                    <span className="text-[10px] font-mono text-[#6E6B62] block">
+                    <span className="text-[10px] font-mono text-muted block">
                       SHIRT / KAMEEZ & SILHOUETTE
                     </span>
-                    <span className="text-[#141413]">{analysis.shirtKameezDesign}</span>
+                    <span className="text-ink">{analysis.shirtKameezDesign}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-mono text-[#6E6B62] block">
+                    <span className="text-[10px] font-mono text-muted block">
                       TROUSERS / DUPATTA
                     </span>
-                    <span className="text-[#141413]">{analysis.trousersShawlDupatta}</span>
+                    <span className="text-ink">{analysis.trousersShawlDupatta}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-mono text-[#6E6B62] block">
+                    <span className="text-[10px] font-mono text-muted block">
                       DOMINANT & ACCENT PALETTE
                     </span>
-                    <span className="text-[#141413]">
+                    <span className="text-ink">
                       {analysis.dominantColors.join(', ')} · {analysis.secondaryColors.join(', ')}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-mono text-[#6E6B62] block">
+                    <span className="text-[10px] font-mono text-muted block">
                       EMBROIDERY, NECKLINE & SLEEVES
                     </span>
-                    <span className="text-[#141413]">
+                    <span className="text-ink">
                       {analysis.embroidery} · {analysis.neckline} · {analysis.sleeves}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-mono text-[#6E6B62] block">
+                    <span className="text-[10px] font-mono text-muted block">
                       IMMUTABLE GARMENT LOCKS
                     </span>
-                    <ul className="mt-0.5 space-y-0.5 text-[#57554E]">
+                    <ul className="mt-0.5 space-y-0.5 text-muted">
                       {analysis.immutableElements.map((item, idx) => (
                         <li key={idx}>• {item}</li>
                       ))}
@@ -291,11 +291,11 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
           </div>
 
           {/* Raw Catalogue Excerpt Note */}
-          <div className="bg-white border border-[#E2DFD7] p-4">
-            <span className="block text-[11px] font-mono text-[#6E6B62] mb-1">
+          <div className="bg-white border border-line p-4">
+            <span className="block text-[11px] font-mono text-muted mb-1">
               Detected Catalogue Line-Sheet Spec
             </span>
-            <p className="text-xs text-[#57554E] font-mono leading-relaxed">
+            <p className="text-xs text-muted font-mono leading-relaxed">
               {product.rawCatalogueText}
             </p>
           </div>
@@ -304,17 +304,17 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
         {/* RIGHT: Studio Generation Controls */}
         <div className="lg:col-span-7 space-y-6">
           {/* 01. MODEL CONFIGURATION */}
-          <section className="bg-white border border-[#E2DFD7] p-6 space-y-5">
-            <div className="flex items-start justify-between border-b border-[#E6E4DD] pb-4">
+          <section className="bg-white border border-line p-6 space-y-5">
+            <div className="flex items-start justify-between border-b border-line pb-4">
               <div>
-                <h2 className="font-editorial text-2xl font-semibold text-[#141413]">
+                <h2 className="font-editorial text-2xl font-semibold text-ink">
                   01. Model Casting & Styling
                 </h2>
-                <p className="text-xs text-[#6E6B62] mt-0.5">
+                <p className="text-xs text-muted mt-0.5">
                   Configure South Asian editorial talent parameters and subtle styling details
                 </p>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-[#141413] font-medium">
+              <div className="flex items-center gap-1.5 text-xs text-ink font-medium">
                 <UserCheck className="w-3.5 h-3.5" />
                 <span>AI-Generated Model</span>
               </div>
@@ -322,21 +322,21 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
 
             {/* Primary Fixed / Core Identity Row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-3.5 bg-[#FAF9F5] border border-[#E6E4DD]">
-                <span className="block text-[11px] text-[#6E6B62]">Model Type</span>
-                <span className="mt-1 block text-xs font-medium text-[#141413]">
+              <div className="p-3.5 bg-canvas border border-line">
+                <span className="block text-[11px] text-muted">Model Type</span>
+                <span className="mt-1 block text-xs font-medium text-ink">
                   AI-Generated Editorial Talent
                 </span>
               </div>
-              <div className="p-3.5 bg-[#FAF9F5] border border-[#E6E4DD]">
-                <span className="block text-[11px] text-[#6E6B62]">Gender</span>
-                <span className="mt-1 block text-xs font-medium text-[#141413]">
+              <div className="p-3.5 bg-canvas border border-line">
+                <span className="block text-[11px] text-muted">Gender</span>
+                <span className="mt-1 block text-xs font-medium text-ink">
                   {config.model.gender}
                 </span>
               </div>
-              <div className="p-3.5 bg-[#FAF9F5] border border-[#E6E4DD]">
-                <span className="block text-[11px] text-[#6E6B62]">Model Style</span>
-                <span className="mt-1 block text-xs font-medium text-[#141413]">
+              <div className="p-3.5 bg-canvas border border-line">
+                <span className="block text-[11px] text-muted">Model Style</span>
+                <span className="mt-1 block text-xs font-medium text-ink">
                   {config.model.modelStyle}
                 </span>
               </div>
@@ -347,7 +347,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               <div>
                 <label
                   htmlFor="model-persona-select"
-                  className="block text-xs font-medium text-[#141413] mb-2"
+                  className="block text-xs font-medium text-ink mb-2"
                 >
                   Studio Face / Look Preset
                 </label>
@@ -360,7 +360,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       model: { ...config.model, personaName: e.target.value },
                     })
                   }
-                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-3.5 py-2.5 text-xs text-[#141413] focus:outline-none focus:border-[#141413]"
+                  className="w-full bg-canvas border border-line-strong px-3.5 py-2.5 text-xs text-ink focus:outline-none focus:border-ink"
                 >
                   <option value="Ayla Raza (Lahore Editorial)">
                     Ayla Raza — Lahore Couture Editorial
@@ -378,7 +378,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               </div>
 
               <div>
-                <span className="block text-xs font-medium text-[#141413] mb-2">
+                <span className="block text-xs font-medium text-ink mb-2">
                   Age Range
                 </span>
                 <div className="grid grid-cols-3 gap-2">
@@ -394,8 +394,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       }
                       className={`py-2 px-3 text-xs font-mono tabular-nums border transition-colors whitespace-nowrap ${
                         config.model.ageRange === age
-                          ? 'bg-[#141413] text-white border-[#141413]'
-                          : 'bg-[#FAF9F5] text-[#141413] border-[#D6D3C9] hover:border-[#141413]'
+                          ? 'bg-ink text-white border-ink'
+                          : 'bg-canvas text-ink border-line-strong hover:border-ink'
                       }`}
                     >
                       {age} yrs
@@ -410,7 +410,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               <div>
                 <label
                   htmlFor="skin-tone-select"
-                  className="block text-xs font-medium text-[#141413] mb-1.5"
+                  className="block text-xs font-medium text-ink mb-1.5"
                 >
                   Complexion Undertone
                 </label>
@@ -426,7 +426,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       },
                     })
                   }
-                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-3 py-2 text-xs text-[#141413] focus:outline-none focus:border-[#141413]"
+                  className="w-full bg-canvas border border-line-strong px-3 py-2 text-xs text-ink focus:outline-none focus:border-ink"
                 >
                   <option value="Warm Olive">Warm Olive</option>
                   <option value="Golden Honey">Golden Honey</option>
@@ -438,7 +438,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               <div>
                 <label
                   htmlFor="hair-styling-select"
-                  className="block text-xs font-medium text-[#141413] mb-1.5"
+                  className="block text-xs font-medium text-ink mb-1.5"
                 >
                   Hair Styling
                 </label>
@@ -454,7 +454,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       },
                     })
                   }
-                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-3 py-2 text-xs text-[#141413] focus:outline-none focus:border-[#141413]"
+                  className="w-full bg-canvas border border-line-strong px-3 py-2 text-xs text-ink focus:outline-none focus:border-ink"
                 >
                   <option value="Sleek Center-Part Bun">Sleek Center-Part Bun</option>
                   <option value="Soft Editorial Waves">Soft Editorial Waves</option>
@@ -466,7 +466,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               <div>
                 <label
                   htmlFor="styling-accent-select"
-                  className="block text-xs font-medium text-[#141413] mb-1.5"
+                  className="block text-xs font-medium text-ink mb-1.5"
                 >
                   Jewelry Restraint
                 </label>
@@ -482,7 +482,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       },
                     })
                   }
-                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-3 py-2 text-xs text-[#141413] focus:outline-none focus:border-[#141413]"
+                  className="w-full bg-canvas border border-line-strong px-3 py-2 text-xs text-ink focus:outline-none focus:border-ink"
                 >
                   <option value="Minimal Gold Studs">Minimal Gold Studs</option>
                   <option value="Heritage Jhumkas">Heritage Jhumkas</option>
@@ -494,12 +494,12 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
           </section>
 
           {/* 02. SHOOT STYLE PRESETS */}
-          <section className="bg-white border border-[#E2DFD7] p-6 space-y-4">
-            <div className="border-b border-[#E6E4DD] pb-3">
-              <h2 className="font-editorial text-2xl font-semibold text-[#141413]">
+          <section className="bg-white border border-line p-6 space-y-4">
+            <div className="border-b border-line pb-3">
+              <h2 className="font-editorial text-2xl font-semibold text-ink">
                 02. Shoot Style Direction
               </h2>
-              <p className="text-xs text-[#6E6B62] mt-0.5">
+              <p className="text-xs text-muted mt-0.5">
                 Select the photographic mood and lighting treatment for this garment
               </p>
             </div>
@@ -516,8 +516,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                     }
                     className={`text-left p-4 border transition-colors flex flex-col justify-between ${
                       isSelected
-                        ? 'bg-[#141413] text-white border-[#141413]'
-                        : 'bg-[#FAF9F5] text-[#141413] border-[#D6D3C9] hover:border-[#141413]'
+                        ? 'bg-ink text-white border-ink'
+                        : 'bg-canvas text-ink border-line-strong hover:border-ink'
                     }`}
                   >
                     <div>
@@ -529,7 +529,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       </div>
                       <p
                         className={`mt-1 text-xs leading-relaxed ${
-                          isSelected ? 'text-[#D6D3C9]' : 'text-[#57554E]'
+                          isSelected ? 'text-line-strong' : 'text-muted'
                         }`}
                       >
                         {preset.subtitle}
@@ -538,8 +538,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                     <span
                       className={`mt-3 pt-2 border-t text-[11px] font-mono block ${
                         isSelected
-                          ? 'border-white/15 text-[#A8A498]'
-                          : 'border-[#E6E4DD] text-[#78756C]'
+                          ? 'border-white/15 text-faint'
+                          : 'border-line text-faint'
                       }`}
                     >
                       {preset.lightingNote}
@@ -551,17 +551,17 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
           </section>
 
           {/* 03. POSE / SHOTS (MULTI-SELECT) */}
-          <section className="bg-white border border-[#E2DFD7] p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#E6E4DD] pb-3">
+          <section className="bg-white border border-line p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
               <div>
-                <h2 className="font-editorial text-2xl font-semibold text-[#141413]">
+                <h2 className="font-editorial text-2xl font-semibold text-ink">
                   03. Pose & Camera Framing
                 </h2>
-                <p className="text-xs text-[#6E6B62] mt-0.5">
+                <p className="text-xs text-muted mt-0.5">
                   Select multiple angles — each shot executes as an independent generation job
                 </p>
               </div>
-              <span className="text-xs font-mono text-[#6E6B62] tabular-nums">
+              <span className="text-xs font-mono text-muted tabular-nums">
                 {config.poses.length} selected
               </span>
             </div>
@@ -576,8 +576,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                     onClick={() => togglePose(pose)}
                     className={`p-3.5 border text-left transition-colors flex items-center justify-between gap-2 ${
                       active
-                        ? 'bg-[#141413] text-white border-[#141413]'
-                        : 'bg-[#FAF9F5] text-[#141413] border-[#D6D3C9] hover:border-[#141413]'
+                        ? 'bg-ink text-white border-ink'
+                        : 'bg-canvas text-ink border-line-strong hover:border-ink'
                     }`}
                   >
                     <span className="text-xs font-medium whitespace-nowrap">
@@ -586,8 +586,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                     <div
                       className={`w-4 h-4 border flex items-center justify-center shrink-0 ${
                         active
-                          ? 'border-white bg-white text-[#141413]'
-                          : 'border-[#A8A498]'
+                          ? 'border-white bg-white text-ink'
+                          : 'border-faint'
                       }`}
                     >
                       {active && <Check className="w-3 h-3" />}
@@ -599,13 +599,13 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
           </section>
 
           {/* 04. BACKGROUND + 05. ASPECT RATIO + 06. NUMBER OF IMAGES */}
-          <section className="bg-white border border-[#E2DFD7] p-6 space-y-6">
+          <section className="bg-white border border-line p-6 space-y-6">
             {/* Background */}
             <div>
-              <span className="block font-editorial text-2xl font-semibold text-[#141413] mb-1">
+              <span className="block font-editorial text-2xl font-semibold text-ink mb-1">
                 04. Set & Background Environment
               </span>
-              <p className="text-xs text-[#6E6B62] mb-3">
+              <p className="text-xs text-muted mb-3">
                 Choose an architectural or studio backdrop that complements the garment palette
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
@@ -618,8 +618,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                     }
                     className={`py-2.5 px-3 text-xs font-medium border transition-colors whitespace-nowrap truncate ${
                       config.background === bg
-                        ? 'bg-[#141413] text-white border-[#141413]'
-                        : 'bg-[#FAF9F5] text-[#141413] border-[#D6D3C9] hover:border-[#141413]'
+                        ? 'bg-ink text-white border-ink'
+                        : 'bg-canvas text-ink border-line-strong hover:border-ink'
                     }`}
                   >
                     {bg}
@@ -631,7 +631,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                 <div className="mt-3">
                   <label
                     htmlFor="custom-bg-input"
-                    className="block text-xs text-[#57554E] mb-1.5"
+                    className="block text-xs text-muted mb-1.5"
                   >
                     Custom Environment Description
                   </label>
@@ -646,16 +646,16 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       })
                     }
                     placeholder="e.g., Sunlit Mughal sandstone courtyard with travertine arches and soft bougainvillea shadows"
-                    className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-3.5 py-2 text-xs text-[#141413] focus:outline-none focus:border-[#141413]"
+                    className="w-full bg-canvas border border-line-strong px-3.5 py-2 text-xs text-ink focus:outline-none focus:border-ink"
                   />
                 </div>
               )}
             </div>
 
             {/* Aspect Ratio & Number of Images */}
-            <div className="pt-5 border-t border-[#E6E4DD] grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="pt-5 border-t border-line grid grid-cols-1 md:grid-cols-12 gap-6">
               <div className="md:col-span-7">
-                <span className="block text-xs font-medium text-[#141413] mb-2">
+                <span className="block text-xs font-medium text-ink mb-2">
                   05. Aspect Ratio
                 </span>
                 <div className="grid grid-cols-3 gap-2.5">
@@ -668,8 +668,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       }
                       className={`py-2.5 px-3 text-xs font-medium border transition-colors whitespace-nowrap truncate ${
                         config.aspectRatio === ratio
-                          ? 'bg-[#141413] text-white border-[#141413]'
-                          : 'bg-[#FAF9F5] text-[#141413] border-[#D6D3C9] hover:border-[#141413]'
+                          ? 'bg-ink text-white border-ink'
+                          : 'bg-canvas text-ink border-line-strong hover:border-ink'
                       }`}
                     >
                       {ratio}
@@ -679,7 +679,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               </div>
 
               <div className="md:col-span-5">
-                <span className="block text-xs font-medium text-[#141413] mb-2">
+                <span className="block text-xs font-medium text-ink mb-2">
                   06. Number of Separate Shot Jobs
                 </span>
                 <div className="grid grid-cols-4 gap-2">
@@ -692,8 +692,8 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
                       }
                       className={`py-2.5 text-xs font-mono tabular-nums font-medium border transition-colors whitespace-nowrap ${
                         config.numberOfImages === num
-                          ? 'bg-[#141413] text-white border-[#141413]'
-                          : 'bg-[#FAF9F5] text-[#141413] border-[#D6D3C9] hover:border-[#141413]'
+                          ? 'bg-ink text-white border-ink'
+                          : 'bg-canvas text-ink border-line-strong hover:border-ink'
                       }`}
                     >
                       {num}
@@ -704,9 +704,9 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
             </div>
 
             {/* Prominent Generate Shoot Footer CTA */}
-            <div className="pt-6 border-t border-[#E6E4DD] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="text-xs text-[#57554E]">
-                <span className="font-medium text-[#141413]">
+            <div className="pt-6 border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="text-xs text-muted">
+                <span className="font-medium text-ink">
                   Ready to compose:
                 </span>{' '}
                 {config.numberOfImages} separate shot jobs · {config.shootStyle} ·{' '}
@@ -716,7 +716,7 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
               <button
                 type="button"
                 onClick={onGenerateShoot}
-                className="flex items-center justify-center gap-2.5 px-8 py-3.5 text-sm font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
+                className="flex items-center justify-center gap-2.5 px-8 py-3.5 text-sm font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
               >
                 <Sparkles className="w-4 h-4" />
                 Generate Shoot

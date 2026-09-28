@@ -18,6 +18,7 @@ import {
   ShotPoseType,
 } from '../../types/studio';
 import { FashionImage } from '../common/FashionImage';
+import { CopyButton } from '../common/CopyButton';
 
 interface ShootGalleryViewProps {
   images: GeneratedShootImage[];
@@ -74,28 +75,28 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
   return (
     <div className="space-y-8 pb-16">
       {/* Top Bar */}
-      <div className="border-b border-[#E6E4DD] pb-6 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+      <div className="border-b border-line pb-6 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div className="flex items-start gap-4">
           <button
             type="button"
             onClick={onBackToWorkspace}
-            className="mt-1 p-2 bg-white border border-[#D6D3C9] text-[#141413] hover:border-[#141413] transition-colors"
+            className="mt-1 p-2 bg-white border border-line-strong text-ink hover:border-ink transition-colors"
             aria-label="Back to workspace"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2 text-xs text-[#6E6B62]">
+            <div className="flex items-center gap-2 text-xs text-muted">
               <span>Results & Contact Sheet</span>
               <span aria-hidden="true">·</span>
               <span className="font-mono tabular-nums">
                 {filteredImages.length} frames displayed
               </span>
             </div>
-            <h1 className="font-editorial text-3xl md:text-4xl font-semibold text-[#141413] mt-0.5">
+            <h1 className="font-editorial text-3xl md:text-4xl font-semibold text-ink mt-0.5">
               Editorial Shoot Gallery
             </h1>
-            <p className="mt-1 text-sm text-[#57554E]">
+            <p className="mt-1 text-sm text-muted">
               Inspect garment fidelity against the original flat-lay, refine individual camera prompts, and select frames for your Instagram carousel.
             </p>
           </div>
@@ -106,7 +107,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
           <button
             type="button"
             onClick={onBackToWorkspace}
-            className="flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:border-[#141413] transition-colors whitespace-nowrap"
+            className="flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-ink bg-white border border-line-strong hover:border-ink transition-colors whitespace-nowrap"
           >
             <Sparkles className="w-3.5 h-3.5" />
             Configure New Shoot
@@ -115,7 +116,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
           <button
             type="button"
             onClick={onOpenPostBuilder}
-            className="flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
+            className="flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
           >
             <Instagram className="w-3.5 h-3.5" />
             Instagram Post Builder ({selectedImages.length} selected)
@@ -124,17 +125,17 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
       </div>
 
       {/* Interactive Filter & Batch Selection Bar */}
-      <div className="bg-white border border-[#E2DFD7] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-line p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           {activeProduct && (
-            <div className="flex items-center bg-[#F2F0E8] p-1 border border-[#E2DFD7] mr-2">
+            <div className="flex items-center bg-wash p-1 border border-line mr-2">
               <button
                 type="button"
                 onClick={() => setScopeFilter('ALL')}
                 className={`px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
                   scopeFilter === 'ALL'
-                    ? 'bg-white text-[#141413] shadow-xs'
-                    : 'text-[#6E6B62] hover:text-[#141413]'
+                    ? 'bg-white text-ink shadow-xs'
+                    : 'text-muted hover:text-ink'
                 }`}
               >
                 All Shoots ({images.length})
@@ -144,8 +145,8 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
                 onClick={() => setScopeFilter('ACTIVE')}
                 className={`px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap ${
                   scopeFilter === 'ACTIVE'
-                    ? 'bg-white text-[#141413] shadow-xs'
-                    : 'text-[#6E6B62] hover:text-[#141413]'
+                    ? 'bg-white text-ink shadow-xs'
+                    : 'text-muted hover:text-ink'
                 }`}
               >
                 {activeProduct.sku} Only
@@ -171,8 +172,8 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
               onClick={() => setPoseFilter(pose)}
               className={`px-3 py-1.5 text-xs font-medium border transition-colors whitespace-nowrap ${
                 poseFilter === pose
-                  ? 'bg-[#141413] text-white border-[#141413]'
-                  : 'bg-[#FAF9F5] text-[#57554E] border-[#E2DFD7] hover:text-[#141413]'
+                  ? 'bg-ink text-white border-ink'
+                  : 'bg-canvas text-muted border-line hover:text-ink'
               }`}
             >
               {pose === 'ALL' ? 'All Angles' : pose}
@@ -186,7 +187,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
             onClick={() =>
               onSelectAllForPost(selectedImages.length < filteredImages.length)
             }
-            className="text-xs font-medium text-[#141413] hover:underline underline-offset-4 whitespace-nowrap"
+            className="text-xs font-medium text-ink hover:underline underline-offset-4 whitespace-nowrap"
           >
             {selectedImages.length >= filteredImages.length && filteredImages.length > 0
               ? 'Clear Carousel Selection'
@@ -197,17 +198,17 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
 
       {/* Contact Sheet Grid */}
       {filteredImages.length === 0 ? (
-        <div className="bg-white border border-[#E2DFD7] p-12 text-center space-y-4">
-          <p className="font-editorial text-2xl text-[#141413]">
+        <div className="bg-white border border-line p-12 text-center space-y-4">
+          <p className="font-editorial text-2xl text-ink">
             No editorial frames match this shot angle filter.
           </p>
-          <p className="text-xs text-[#6E6B62]">
+          <p className="text-xs text-muted">
             Reset the angle filter or return to the Product Workspace to generate additional poses.
           </p>
           <button
             type="button"
             onClick={() => setPoseFilter('ALL')}
-            className="px-4 py-2 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors"
+            className="px-4 py-2 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors"
           >
             Show All Generated Frames
           </button>
@@ -220,21 +221,21 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
               <article
                 key={img.id}
                 className={`bg-white border transition-colors flex flex-col justify-between ${
-                  img.selectedForPost ? 'border-[#141413]' : 'border-[#E2DFD7]'
+                  img.selectedForPost ? 'border-ink' : 'border-line'
                 }`}
               >
                 <div>
                   {/* Card Top Selection & Status Bar */}
-                  <div className="px-4 py-3 border-b border-[#E6E4DD] bg-[#FAF9F5] flex items-center justify-between gap-2">
+                  <div className="px-4 py-3 border-b border-line bg-canvas flex items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => onToggleSelectForPost(img.id)}
-                      className="flex items-center gap-2 text-xs font-medium text-[#141413] hover:opacity-80 transition-opacity whitespace-nowrap"
+                      className="flex items-center gap-2 text-xs font-medium text-ink hover:opacity-80 transition-opacity whitespace-nowrap"
                     >
                       {img.selectedForPost ? (
-                        <CheckSquare className="w-4 h-4 text-[#141413]" />
+                        <CheckSquare className="w-4 h-4 text-ink" />
                       ) : (
-                        <Square className="w-4 h-4 text-[#78756C]" />
+                        <Square className="w-4 h-4 text-faint" />
                       )}
                       <span>
                         {img.selectedForPost ? 'In IG Carousel' : 'Select for Post'}
@@ -242,7 +243,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
                     </button>
 
                     {/* Clean unboxed status text */}
-                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#6E6B62]">
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted">
                       <span>{img.productSku}</span>
                       <span aria-hidden="true">·</span>
                       <span
@@ -260,12 +261,12 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
                   {/* Main Editorial Image Plate */}
                   <div className="relative p-4 bg-white">
                     {isRegenerating ? (
-                      <div className="aspect-[4/5] bg-[#FAF9F5] border border-[#E6E4DD] flex flex-col items-center justify-center p-6 text-center">
-                        <Loader2 className="w-6 h-6 text-[#141413] animate-spin mb-3" />
-                        <p className="font-editorial text-xl text-[#141413]">
+                      <div className="aspect-[4/5] bg-canvas border border-line flex flex-col items-center justify-center p-6 text-center">
+                        <Loader2 className="w-6 h-6 text-ink animate-spin mb-3" />
+                        <p className="font-editorial text-xl text-ink">
                           Re-composing {img.shotType} frame...
                         </p>
-                        <span className="mt-1 text-xs font-mono text-[#6E6B62]">
+                        <span className="mt-1 text-xs font-mono text-muted">
                           Preserving garment embroidery & drape
                         </span>
                       </div>
@@ -281,33 +282,42 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
 
                   {/* Subtle Unboxed Metadata Block */}
                   <div className="px-5 pb-4 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-[#141413] font-medium">
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink font-medium">
                       <span>{img.shotType}</span>
-                      <span aria-hidden="true" className="text-[#78756C]">·</span>
+                      <span aria-hidden="true" className="text-faint">·</span>
                       <span>{img.style}</span>
-                      <span aria-hidden="true" className="text-[#78756C]">·</span>
-                      <span className="font-mono text-[11px] text-[#6E6B62]">
+                      <span aria-hidden="true" className="text-faint">·</span>
+                      <span className="font-mono text-[11px] text-muted">
                         {img.aspectRatio}
                       </span>
                     </div>
 
-                    <p className="text-xs text-[#57554E] truncate">
+                    <p className="text-xs text-muted truncate">
                       Model: {img.modelSummary}
                     </p>
 
-                    <p className="text-[11px] text-[#78756C] line-clamp-2 leading-relaxed">
-                      {img.promptNotes}
-                    </p>
+                    <div className="rounded-xl border border-line bg-canvas p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium text-ink">Prompt used</p>
+                        <CopyButton
+                          text={img.masterPromptUsed || img.promptNotes}
+                          label="Copy prompt"
+                        />
+                      </div>
+                      <p className="mt-2 max-h-36 overflow-y-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted">
+                        {img.masterPromptUsed || img.promptNotes}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Action Bar: Compare, Edit Prompt, Regenerate, Download, Add to IG, Delete */}
-                <div className="px-4 py-3 border-t border-[#E6E4DD] bg-[#FAF9F5] space-y-2.5">
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="px-4 py-3 border-t border-line bg-canvas space-y-2.5">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <button
                       type="button"
                       onClick={() => onCompareImage(img)}
-                      className="flex items-center justify-center gap-1.5 py-2 px-2 bg-white border border-[#D6D3C9] text-xs font-medium text-[#141413] hover:border-[#141413] transition-colors whitespace-nowrap"
+                      className="flex items-center justify-center gap-1.5 py-2 px-2 bg-white border border-line-strong text-xs font-medium text-ink hover:border-ink transition-colors whitespace-nowrap"
                     >
                       <Columns className="w-3.5 h-3.5" />
                       Compare
@@ -316,7 +326,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onEditPrompt(img)}
-                      className="flex items-center justify-center gap-1.5 py-2 px-2 bg-white border border-[#D6D3C9] text-xs font-medium text-[#141413] hover:border-[#141413] transition-colors whitespace-nowrap"
+                      className="flex items-center justify-center gap-1.5 py-2 px-2 bg-white border border-line-strong text-xs font-medium text-ink hover:border-ink transition-colors whitespace-nowrap"
                     >
                       <Sliders className="w-3.5 h-3.5" />
                       Edit Prompt
@@ -326,7 +336,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
                       type="button"
                       disabled={isRegenerating}
                       onClick={() => onRegenerateImage(img.id)}
-                      className="flex items-center justify-center gap-1.5 py-2 px-2 bg-white border border-[#D6D3C9] text-xs font-medium text-[#141413] hover:border-[#141413] disabled:opacity-50 transition-colors whitespace-nowrap"
+                      className="flex items-center justify-center gap-1.5 py-2 px-2 bg-white border border-line-strong text-xs font-medium text-ink hover:border-ink disabled:opacity-50 transition-colors whitespace-nowrap"
                     >
                       <RefreshCw
                         className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`}
@@ -344,7 +354,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
                         }
                         onOpenPostBuilder();
                       }}
-                      className="flex items-center gap-1.5 text-xs font-medium text-[#141413] hover:underline underline-offset-4 whitespace-nowrap"
+                      className="flex items-center gap-1.5 text-xs font-medium text-ink hover:underline underline-offset-4 whitespace-nowrap"
                     >
                       <Instagram className="w-3.5 h-3.5" />
                       Send to Instagram Post
@@ -356,7 +366,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
                         onClick={() => handleDownloadPlate(img)}
                         aria-label="Download image"
                         title="Download high-res plate"
-                        className="p-1.5 text-[#57554E] hover:text-[#141413] transition-colors"
+                        className="p-1.5 text-muted hover:text-ink transition-colors"
                       >
                         <Download className="w-4 h-4" />
                       </button>
@@ -365,7 +375,7 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
                         onClick={() => onDeleteImageRequest(img)}
                         aria-label="Reject and delete image"
                         title="Reject image"
-                        className="p-1.5 text-[#57554E] hover:text-[#991B1B] transition-colors"
+                        className="p-1.5 text-muted hover:text-[#991B1B] transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

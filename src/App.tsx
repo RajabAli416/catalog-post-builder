@@ -589,7 +589,7 @@ export default function App() {
 
   if (sessionEmail === undefined) {
     return (
-      <div className="min-h-screen bg-[#FAF9F5] text-[#57554E] flex items-center justify-center text-sm">
+      <div className="min-h-screen bg-canvas text-muted flex items-center justify-center text-sm">
         Loading studio…
       </div>
     );
@@ -600,16 +600,16 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF9F5] text-[#141413] flex flex-col">
+    <div className="min-h-screen bg-canvas text-ink flex flex-col">
       {/* Top Bar Contract: 3 Zones (Single Brand Wordmark — 4 Workflow Nav Links — Primary Action) */}
-      <header className="sticky top-0 z-30 h-16 bg-white border-b border-[#E2DFD7] px-4 lg:px-8 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 h-16 bg-white border-b border-line px-4 lg:px-8 flex items-center justify-between gap-4">
         {/* Zone 1: Brand Title (single text element wordmark) + Mobile menu button */}
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setMobileMenuOpen((o) => !o)}
             aria-label="Toggle studio navigation"
-            className="lg:hidden p-2 text-[#141413] hover:bg-[#FAF9F5]"
+            className="lg:hidden p-2 text-ink hover:bg-canvas"
           >
             {mobileMenuOpen ? (
               <X className="w-5 h-5" />
@@ -623,16 +623,16 @@ export default function App() {
               e.preventDefault();
               navigateTo('dashboard');
             }}
-            className="font-editorial text-2xl font-semibold tracking-tight text-[#141413] whitespace-nowrap"
+            className="font-editorial text-2xl font-semibold tracking-tight text-ink whitespace-nowrap"
           >
-            Atelier Noor
+            Veyra
           </a>
         </div>
 
         {/* Zone 2: 4-5 Single-Line Workflow Links */}
         <nav
           aria-label="Studio workflow stages"
-          className="hidden md:flex items-center gap-6 text-xs font-medium text-[#57554E]"
+          className="hidden md:flex items-center gap-6 text-xs font-medium text-muted"
         >
           {workflowSteps.map((step) => {
             const isActive = !createProjectOpen && activeTab === step.id;
@@ -643,8 +643,8 @@ export default function App() {
                 onClick={() => (step.id === 'new-project' ? openCatalogue() : navigateTo(step.id))}
                 className={`py-1 transition-colors whitespace-nowrap border-b-2 ${
                   isActive
-                    ? 'text-[#141413] border-[#141413] font-semibold'
-                    : 'border-transparent hover:text-[#141413]'
+                    ? 'text-ink border-ink font-semibold'
+                    : 'border-transparent hover:text-ink'
                 }`}
               >
                 {step.label}
@@ -658,7 +658,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => navigateTo('workspace')}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-[#141413] bg-[#FAF9F5] border border-[#D6D3C9] hover:border-[#141413] transition-colors whitespace-nowrap"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-ink bg-canvas border border-line-strong hover:border-ink transition-colors whitespace-nowrap"
           >
             <Sparkles className="w-3.5 h-3.5" />
             Product Studio
@@ -666,7 +666,7 @@ export default function App() {
           <button
             type="button"
             onClick={startCreateProject}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5" />
             New Project
@@ -682,12 +682,12 @@ export default function App() {
             mobileMenuOpen
               ? 'fixed inset-y-0 left-0 top-16 z-40 block'
               : 'hidden'
-          } lg:block w-64 shrink-0 bg-white border-r border-[#E2DFD7] flex flex-col justify-between p-5`}
+          } lg:block w-64 shrink-0 bg-white border-r border-line flex flex-col justify-between p-5`}
         >
           <div className="space-y-8">
             {/* Group 1: Studio */}
             <div>
-              <span className="px-3 text-[11px] font-mono text-[#78756C] block mb-2">
+              <span className="px-3 text-[11px] font-mono text-faint block mb-2">
                 Studio
               </span>
               <ul className="space-y-1">
@@ -701,8 +701,8 @@ export default function App() {
                         onClick={() => navigateTo(item.id)}
                         className={`w-full flex items-center justify-between px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
                           isActive
-                            ? 'bg-[#141413] text-white'
-                            : 'text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5]'
+                            ? 'bg-ink text-white'
+                            : 'text-muted hover:text-ink hover:bg-canvas'
                         }`}
                       >
                         <span className="flex items-center gap-2.5">
@@ -712,7 +712,7 @@ export default function App() {
                         {typeof item.count === 'number' && (
                           <span
                             className={`font-mono text-[11px] tabular-nums ${
-                              isActive ? 'text-[#D6D3C9]' : 'text-[#78756C]'
+                              isActive ? 'text-line-strong' : 'text-faint'
                             }`}
                           >
                             {item.count}
@@ -727,7 +727,7 @@ export default function App() {
 
             {/* Group 2: Workspace */}
             <div>
-              <span className="px-3 text-[11px] font-mono text-[#78756C] block mb-2">
+              <span className="px-3 text-[11px] font-mono text-faint block mb-2">
                 Workspace
               </span>
               <ul className="space-y-1">
@@ -737,8 +737,8 @@ export default function App() {
                     onClick={startCreateProject}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
                       createProjectOpen
-                        ? 'bg-[#141413] text-white'
-                        : 'text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5]'
+                        ? 'bg-ink text-white'
+                        : 'text-muted hover:text-ink hover:bg-canvas'
                     }`}
                   >
                     <Plus className="w-4 h-4" />
@@ -751,8 +751,8 @@ export default function App() {
                     onClick={() => navigateTo('workspace')}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
                       activeTab === 'workspace' || activeTab === 'generating'
-                        ? 'bg-[#141413] text-white'
-                        : 'text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5]'
+                        ? 'bg-ink text-white'
+                        : 'text-muted hover:text-ink hover:bg-canvas'
                     }`}
                   >
                     <Sparkles className="w-4 h-4" />
@@ -767,8 +767,8 @@ export default function App() {
                     onClick={() => navigateTo('shoot-gallery')}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
                       activeTab === 'shoot-gallery'
-                        ? 'bg-[#141413] text-white'
-                        : 'text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5]'
+                        ? 'bg-ink text-white'
+                        : 'text-muted hover:text-ink hover:bg-canvas'
                     }`}
                   >
                     <Layers className="w-4 h-4" />
@@ -781,8 +781,8 @@ export default function App() {
                     onClick={() => navigateTo('post-builder')}
                     className={`w-full flex items-center justify-between px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
                       activeTab === 'post-builder'
-                        ? 'bg-[#141413] text-white'
-                        : 'text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5]'
+                        ? 'bg-ink text-white'
+                        : 'text-muted hover:text-ink hover:bg-canvas'
                     }`}
                   >
                     <span className="flex items-center gap-2.5">
@@ -792,8 +792,8 @@ export default function App() {
                     <span
                       className={`font-mono text-[11px] tabular-nums ${
                         activeTab === 'post-builder'
-                          ? 'text-[#D6D3C9]'
-                          : 'text-[#78756C]'
+                          ? 'text-line-strong'
+                          : 'text-faint'
                       }`}
                     >
                       {selectedCarouselImages.length}
@@ -805,14 +805,14 @@ export default function App() {
           </div>
 
           {/* Group 3: Settings */}
-          <div className="pt-6 border-t border-[#E6E4DD]">
+          <div className="pt-6 border-t border-line">
             <button
               type="button"
               onClick={() => navigateTo('settings')}
               className={`w-full flex items-center justify-between px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
                 activeTab === 'settings'
-                  ? 'bg-[#141413] text-white'
-                  : 'text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5]'
+                  ? 'bg-ink text-white'
+                  : 'text-muted hover:text-ink hover:bg-canvas'
               }`}
             >
               <span className="flex items-center gap-2.5">
@@ -823,8 +823,8 @@ export default function App() {
                 <span
                   className={`font-mono text-[10px] uppercase ${
                     activeTab === 'settings'
-                      ? 'text-[#D6D3C9]'
-                      : 'text-[#78756C]'
+                      ? 'text-line-strong'
+                      : 'text-faint'
                   }`}
                 >
                   {runtimeStatus.hasGeminiApiKey ? 'LIVE' : 'NO KEY'}
@@ -836,7 +836,7 @@ export default function App() {
               onClick={() => {
                 void supabase?.auth.signOut();
               }}
-              className="mt-1 w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-[#57554E] hover:text-[#141413] hover:bg-[#FAF9F5] transition-colors whitespace-nowrap"
+              className="mt-1 w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-muted hover:text-ink hover:bg-canvas transition-colors whitespace-nowrap"
             >
               <LogOut className="w-4 h-4" />
               <span className="truncate">Sign out{sessionEmail ? ` (${sessionEmail})` : ''}</span>
@@ -845,40 +845,40 @@ export default function App() {
         </aside>
 
         {/* Main Workspace Viewport */}
-        <main className="flex-1 min-w-0 p-6 lg:p-10 max-w-[1360px] mx-auto w-full">
+        <main className="flex-1 min-w-0 w-full max-w-[1360px] mx-auto p-6 pb-28 lg:p-10">
           {studioError && (
             <div className="mb-6 border border-[#DC2626] bg-[#FEF2F2] px-4 py-3 text-sm text-[#991B1B]">
               {studioError}
             </div>
           )}
           {runtimeStatus && !runtimeStatus.hasGeminiApiKey && (
-            <div className="mb-6 border border-[#141413] bg-[#FAF9F5] px-4 py-3 text-sm text-[#141413]">
+            <div className="mb-6 border border-ink bg-canvas px-4 py-3 text-sm text-ink">
               Add <span className="font-mono">GEMINI_API_KEY</span> in the Vercel project environment variables, then redeploy. Generation stays on the live Gemini API.
             </div>
           )}
           {runtimeStatus?.storageMode === 'ephemeral' && (
-            <div className="mb-6 border border-[#141413] bg-[#FAF9F5] px-4 py-3 text-sm text-[#141413]">
+            <div className="mb-6 border border-ink bg-canvas px-4 py-3 text-sm text-ink">
               Create a Vercel Blob store under Storage so uploads and generated images persist. Redeploy after the store is connected.
             </div>
           )}
           {createProjectOpen && (
             <form
               onSubmit={handleCreateProject}
-              className="max-w-xl border border-[#E2DFD7] bg-white p-8 space-y-6"
+              className="max-w-xl border border-line bg-white p-8 space-y-6"
             >
               <div>
-                <div className="text-xs text-[#6E6B62] mb-1.5">Studio / New project</div>
-                <h1 className="font-editorial text-3xl font-semibold text-[#141413]">
+                <div className="text-xs text-muted mb-1.5">Studio / New project</div>
+                <h1 className="font-editorial text-3xl font-semibold text-ink">
                   Name this collection
                 </h1>
-                <p className="mt-2 text-sm text-[#57554E]">
+                <p className="mt-2 text-sm text-muted">
                   Create the project first. PDF and garment photo uploads happen inside it.
                 </p>
               </div>
               <div>
                 <label
                   htmlFor="create-project-name"
-                  className="block text-xs font-medium text-[#141413] mb-2"
+                  className="block text-xs font-medium text-ink mb-2"
                 >
                   Collection name
                 </label>
@@ -888,7 +888,7 @@ export default function App() {
                   value={createProjectName}
                   onChange={(event) => setCreateProjectName(event.target.value)}
                   placeholder="e.g., Winter Festive '26"
-                  className="w-full bg-[#FAF9F5] border border-[#D6D3C9] px-4 py-2.5 text-sm text-[#141413] focus:outline-none focus:border-[#141413]"
+                  className="w-full bg-canvas border border-line-strong px-4 py-2.5 text-sm text-ink focus:outline-none focus:border-ink"
                   autoFocus
                 />
               </div>
@@ -899,7 +899,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={isCreatingProject}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors disabled:opacity-60"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   {isCreatingProject ? 'Creating…' : 'Create project'}
@@ -907,7 +907,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setCreateProjectOpen(false)}
-                  className="px-4 py-2.5 text-xs font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:border-[#141413] transition-colors"
+                  className="px-4 py-2.5 text-xs font-medium text-ink bg-white border border-line-strong hover:border-ink transition-colors"
                 >
                   Cancel
                 </button>
@@ -953,17 +953,17 @@ export default function App() {
           )}
 
           {!createProjectOpen && activeTab === 'new-project' && !activeProject && (
-            <div className="border border-[#E2DFD7] bg-white p-8">
-              <h1 className="font-editorial text-3xl font-semibold text-[#141413]">
+            <div className="border border-line bg-white p-8">
+              <h1 className="font-editorial text-3xl font-semibold text-ink">
                 Open a project first
               </h1>
-              <p className="mt-2 text-sm text-[#57554E]">
+              <p className="mt-2 text-sm text-muted">
                 Create a project, then upload a PDF or garment photos.
               </p>
               <button
                 type="button"
                 onClick={startCreateProject}
-                className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors"
+                className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 New Project
@@ -986,11 +986,11 @@ export default function App() {
           )}
 
           {!createProjectOpen && activeTab === 'workspace' && !activeProduct && (
-            <div className="border border-[#E2DFD7] bg-white p-8">
-              <h1 className="font-editorial text-3xl font-semibold text-[#141413]">
+            <div className="border border-line bg-white p-8">
+              <h1 className="font-editorial text-3xl font-semibold text-ink">
                 No garment selected
               </h1>
-              <p className="mt-2 text-sm text-[#57554E]">
+              <p className="mt-2 text-sm text-muted">
                 Create a project, then upload a PDF or garment photos.
               </p>
             </div>
@@ -1072,6 +1072,36 @@ export default function App() {
         </main>
       </div>
 
+      <nav
+        aria-label="Studio"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-card/95 backdrop-blur-sm lg:hidden"
+      >
+        {(
+          [
+            { id: 'dashboard' as const, label: 'Home', icon: LayoutDashboard },
+            { id: 'projects' as const, label: 'Projects', icon: FolderKanban },
+            { id: 'shoot-gallery' as const, label: 'Gallery', icon: Layers },
+            { id: 'post-builder' as const, label: 'Post', icon: Instagram },
+          ]
+        ).map((item) => {
+          const Icon = item.icon;
+          const selected = !createProjectOpen && activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => navigateTo(item.id)}
+              className={`flex min-h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium ${
+                selected ? 'text-accent' : 'text-muted'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          );
+        })}
+      </nav>
+
       {/* Garment Compare & Art Direction / Regeneration Modal */}
       <CompareModal
         image={modalImage}
@@ -1101,7 +1131,7 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-5 right-5 z-50 bg-[#141413] text-[#FAF9F5] px-4 py-3 text-xs font-medium shadow-lg flex items-center gap-2.5 border border-white/10"
+          className="fixed bottom-5 right-5 z-50 bg-ink text-canvas px-4 py-3 text-xs font-medium shadow-lg flex items-center gap-2.5 border border-white/10"
         >
           <Check className="w-3.5 h-3.5 text-[#16A34A] shrink-0" />
           <span>{toastMessage}</span>

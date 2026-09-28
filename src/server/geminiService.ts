@@ -794,6 +794,7 @@ export async function generateInstagramCopyServer(params: {
   caption: string;
   hashtags: string[];
   cta: string;
+  copyPromptUsed: string;
 }> {
   const { product, tone, style } = params;
   void params.aiMode;
@@ -805,12 +806,14 @@ export async function generateInstagramCopyServer(params: {
         ? JSON.stringify(product.garmentAnalysis)
         : product.fabricDetails;
 
-      const response = await generateContentWithFallback(ai, textModel, TEXT_MODEL_FALLBACKS, {
-        contents: `You are the creative director for a luxury Pakistani fashion house.
+      const copyPrompt = `You are the creative director for a luxury Pakistani fashion house.
 Write original Instagram carousel copy for the following garment photographed in a "${style}" campaign with a "${tone}" voice.
 CRITICAL RULE: Do NOT copy or repeat the raw catalogue specification text ("${product.rawCatalogueText}"). Write completely original, refined editorial storytelling based on the garment's visual traits:
 Garment Name: ${product.name}
-Visual Analysis: ${analysisSummary}`,
+Visual Analysis: ${analysisSummary}`;
+
+      const response = await generateContentWithFallback(ai, textModel, TEXT_MODEL_FALLBACKS, {
+        contents: copyPrompt,
         config: {
           responseMimeType: 'application/json',
           responseSchema: {
@@ -833,10 +836,11 @@ Visual Analysis: ${analysisSummary}`,
           productTitle: parsed.productTitle,
           shortDescription: parsed.shortDescription || '',
           caption: parsed.caption,
-          hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : ['#AtelierNoor'],
+          hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : ['#Veyra'],
           cta:
             parsed.cta ||
             'Explore bespoke & standard sizing via the link in bio, or message our studio concierge.',
+          copyPromptUsed: copyPrompt,
         };
       }
     } catch (err) {

@@ -235,6 +235,7 @@ export async function generateInstagramCopyApi(params: {
   caption: string;
   hashtags: string[];
   cta: string;
+  copyPromptUsed?: string;
 }> {
   const res = await studioFetch('/api/posts/generate-copy', {
     method: 'POST',

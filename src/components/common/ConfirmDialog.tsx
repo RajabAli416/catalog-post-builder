@@ -31,20 +31,20 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
     >
-      <div className="w-full max-w-md bg-[#FAF9F5] border border-[#E2DFD7] p-6 shadow-xl">
+      <div className="w-full max-w-md bg-canvas border border-line p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 shrink-0 border border-[#E2DFD7] bg-white flex items-center justify-center text-[#141413]">
+            <div className="w-9 h-9 shrink-0 border border-line bg-white flex items-center justify-center text-ink">
               <AlertTriangle className="w-4 h-4 text-[#991B1B]" />
             </div>
             <div>
               <h3
                 id="confirm-dialog-title"
-                className="font-editorial text-xl font-semibold text-[#141413]"
+                className="font-editorial text-xl font-semibold text-ink"
               >
                 {title}
               </h3>
-              <p className="mt-1.5 text-sm text-[#57554E] leading-relaxed">
+              <p className="mt-1.5 text-sm text-muted leading-relaxed">
                 {description}
               </p>
             </div>
@@ -53,17 +53,17 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             type="button"
             onClick={onCancel}
             aria-label="Close confirmation dialog"
-            className="p-1.5 text-[#78756C] hover:text-[#141413] transition-colors"
+            className="p-1.5 text-faint hover:text-ink transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-[#E6E4DD] flex items-center justify-end gap-3">
+        <div className="mt-6 pt-4 border-t border-line flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-xs font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:bg-[#F2F0E8] transition-colors whitespace-nowrap"
+            className="px-4 py-2 text-xs font-medium text-ink bg-white border border-line-strong hover:bg-wash transition-colors whitespace-nowrap"
           >
             {cancelLabel}
           </button>
@@ -73,7 +73,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             className={`px-4 py-2 text-xs font-medium text-white transition-colors whitespace-nowrap ${
               variant === 'danger'
                 ? 'bg-[#991B1B] hover:bg-[#7F1D1D]'
-                : 'bg-[#141413] hover:bg-[#2C2C2A]'
+                : 'bg-accent hover:bg-accent-hover'
             }`}
           >
             {confirmLabel}

@@ -38,13 +38,13 @@ export const FashionImage: React.FC<FashionImageProps> = ({
       <div
         className={`relative overflow-hidden bg-gradient-to-br from-[#EFECE4] via-[#E5E0D4] to-[#D8D1C2] flex flex-col items-center justify-center p-6 text-center ${aspectClass} ${containerClassName}`}
       >
-        <div className="w-10 h-10 rounded-full border border-[#141413]/15 flex items-center justify-center mb-3 text-[#57554E]">
+        <div className="w-10 h-10 rounded-full border border-ink/15 flex items-center justify-center mb-3 text-muted">
           <Sparkles className="w-4 h-4" />
         </div>
-        <p className="font-editorial text-lg text-[#141413] leading-snug max-w-[20ch]">
+        <p className="font-editorial text-lg text-ink leading-snug max-w-[20ch]">
           {fallbackLabel || alt}
         </p>
-        <span className="mt-1 text-[11px] font-mono text-[#78756C]">
+        <span className="mt-1 text-[11px] font-mono text-faint">
           Studio Archive Plate
         </span>
       </div>

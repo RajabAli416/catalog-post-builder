@@ -54,10 +54,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignedIn }) => {
 
   if (!supabase) {
     return (
-      <div className="min-h-screen bg-[#FAF9F5] text-[#141413] flex items-center justify-center px-6">
-        <div className="max-w-md w-full bg-white border border-[#E2DFD7] p-8">
-          <h1 className="font-editorial text-3xl">Atelier Noor</h1>
-          <p className="mt-4 text-sm leading-relaxed text-[#57554E]">
+      <div className="min-h-screen bg-canvas text-ink flex items-center justify-center px-6">
+        <div className="max-w-md w-full rounded-2xl border border-line bg-card p-8 shadow-sm">
+          <h1 className="font-editorial text-4xl text-ink">Veyra</h1>
+          <p className="mt-4 text-sm leading-relaxed text-muted">
             Add <span className="font-mono">VITE_SUPABASE_URL</span> and{' '}
             <span className="font-mono">VITE_SUPABASE_ANON_KEY</span> to the environment, then
             restart the app.
@@ -68,32 +68,30 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignedIn }) => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF9F5] text-[#141413] flex items-center justify-center px-6">
+    <div className="min-h-screen bg-canvas text-ink flex items-center justify-center px-6">
       <form
         onSubmit={submit}
-        className="max-w-md w-full bg-white border border-[#E2DFD7] p-8 space-y-5"
+        className="max-w-md w-full rounded-2xl border border-line bg-card p-8 shadow-sm space-y-5"
       >
         <div>
-          <p className="text-[11px] font-mono uppercase tracking-wide text-[#78756C]">
-            Atelier Noor
+          <h1 className="font-editorial text-4xl text-ink">Veyra</h1>
+          <p className="mt-1 text-sm text-muted">
+            {mode === 'create' ? 'Create an account to open your studio.' : 'Sign in to your studio.'}
           </p>
-          <h1 className="font-editorial text-3xl mt-1">
-            {mode === 'create' ? 'Create account' : 'Sign in'}
-          </h1>
         </div>
         <label className="block text-sm">
-          <span className="text-[#57554E]">Email</span>
+          <span className="text-muted">Email</span>
           <input
             type="email"
             required
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-1 w-full border border-[#D6D3C9] bg-[#FAF9F5] px-3 py-2 text-sm outline-none focus:border-[#141413]"
+            className="mt-1 w-full border border-line-strong bg-canvas px-3 py-2 text-sm outline-none focus:border-ink"
           />
         </label>
         <label className="block text-sm">
-          <span className="text-[#57554E]">Password</span>
+          <span className="text-muted">Password</span>
           <input
             type="password"
             required
@@ -101,21 +99,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSignedIn }) => {
             autoComplete={mode === 'create' ? 'new-password' : 'current-password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-1 w-full border border-[#D6D3C9] bg-[#FAF9F5] px-3 py-2 text-sm outline-none focus:border-[#141413]"
+            className="mt-1 w-full border border-line-strong bg-canvas px-3 py-2 text-sm outline-none focus:border-ink"
           />
         </label>
         {error && <p className="text-sm text-[#991B1B]">{error}</p>}
-        {notice && <p className="text-sm text-[#57554E]">{notice}</p>}
+        {notice && <p className="text-sm text-muted">{notice}</p>}
         <button
           type="submit"
           disabled={busy}
-          className="w-full bg-[#141413] text-white text-sm py-2.5 hover:bg-[#2C2C2A] disabled:opacity-60"
+          className="w-full rounded-lg bg-accent text-on-accent text-sm py-3 hover:bg-accent-hover disabled:opacity-60"
         >
           {busy ? 'Please wait…' : mode === 'create' ? 'Create account' : 'Sign in'}
         </button>
         <button
           type="button"
-          className="w-full text-xs text-[#57554E] hover:text-[#141413]"
+          className="w-full text-xs text-muted hover:text-ink"
           onClick={() => {
             setMode((current) => (current === 'create' ? 'sign-in' : 'create'));
             setError(null);

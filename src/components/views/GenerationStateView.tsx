@@ -150,10 +150,10 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
 
   return (
     <div className="py-6 md:py-10 max-w-5xl mx-auto">
-      <div className="bg-white border border-[#E2DFD7] p-6 md:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="bg-white border border-line p-6 md:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left: Large Garment Preview */}
         <div className="lg:col-span-5">
-          <div className="border border-[#E2DFD7] bg-[#FAF9F5] p-3">
+          <div className="border border-line bg-canvas p-3">
             <FashionImage
               src={product.garmentImageUrl}
               alt={product.name}
@@ -161,7 +161,7 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
               cropVariant="full"
             />
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-[#6E6B62]">
+          <div className="mt-3 flex items-center justify-between text-xs text-muted">
             <span className="font-mono">{product.sku}</span>
             <span>{product.name}</span>
           </div>
@@ -170,7 +170,7 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
         {/* Right: Real Backend Stage Progression & Per-Shot Job Tree */}
         <div className="lg:col-span-7 space-y-6">
           <div>
-            <div className="flex items-center gap-2 text-xs text-[#6E6B62]">
+            <div className="flex items-center gap-2 text-xs text-muted">
               <span>Backend Generation Pipeline</span>
               <span aria-hidden="true">·</span>
               <span className="font-mono tabular-nums">
@@ -178,12 +178,12 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
                 {config.aspectRatio}
               </span>
             </div>
-            <h1 className="font-editorial text-3xl md:text-4xl font-semibold text-[#141413] mt-1">
+            <h1 className="font-editorial text-3xl md:text-4xl font-semibold text-ink mt-1">
               {isFailed
                 ? 'Generation Interrupted'
                 : `Composing ${config.shootStyle} Shoot`}
             </h1>
-            <p className="mt-1.5 text-sm text-[#57554E]">
+            <p className="mt-1.5 text-sm text-muted">
               Model: {config.model.personaName} · Setting: {config.background}
             </p>
           </div>
@@ -191,26 +191,26 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
           {/* Indeterminate Loading State (No Fake Percentages — Phase 2F) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-[#141413]">
+              <span className="text-ink">
                 STAGE: {currentStatus.toUpperCase()}
               </span>
-              <span className="text-[#6E6B62] tabular-nums">
+              <span className="text-muted tabular-nums">
                 {completedJobCount}/{jobs.length || config.numberOfImages} shots finished
               </span>
             </div>
-            <div className="h-1.5 w-full bg-[#E6E4DD] overflow-hidden relative">
+            <div className="h-1.5 w-full bg-line overflow-hidden relative">
               {isFailed ? (
                 <div className="h-full w-full bg-[#991B1B]" />
               ) : currentStatus === 'Complete' ? (
                 <div className="h-full w-full bg-[#16A34A]" />
               ) : (
-                <div className="h-full w-2/5 bg-[#141413] animate-pulse mx-auto" />
+                <div className="h-full w-2/5 bg-ink animate-pulse mx-auto" />
               )}
             </div>
           </div>
 
           {!isFailed && polledShoot?.errorMessage ? (
-            <div className="bg-[#F7F6F2] border border-[#E6E4DD] p-4 text-xs text-[#57554E] leading-relaxed">
+            <div className="bg-[#F7F6F2] border border-line p-4 text-xs text-muted leading-relaxed">
               {polledShoot.errorMessage}
             </div>
           ) : null}
@@ -232,7 +232,7 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
                   <button
                     type="button"
                     onClick={onRetry}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-white bg-[#141413] hover:bg-[#2C2C2A] transition-colors whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors whitespace-nowrap"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     Retry live shoot
@@ -244,21 +244,21 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
 
           {/* Phase 2E: Separate Shot Jobs Tree */}
           {jobs.length > 0 && (
-            <div className="bg-[#FAF9F5] border border-[#E6E4DD] p-4 space-y-2.5">
-              <span className="block text-[11px] font-mono text-[#6E6B62]">
+            <div className="bg-canvas border border-line p-4 space-y-2.5">
+              <span className="block text-[11px] font-mono text-muted">
                 MULTI-SHOT ASYNC GENERATION JOBS ({jobs.length} INDEPENDENT REQUESTS)
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {jobs.map((job, idx) => (
                   <div
                     key={job.id}
-                    className="p-2.5 bg-white border border-[#E2DFD7] flex items-center justify-between gap-2 text-xs"
+                    className="p-2.5 bg-white border border-line flex items-center justify-between gap-2 text-xs"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[11px] text-[#78756C]">
+                      <span className="font-mono text-[11px] text-faint">
                         0{idx + 1}
                       </span>
-                      <span className="font-medium text-[#141413] truncate">
+                      <span className="font-medium text-ink truncate">
                         {job.shotType}
                       </span>
                     </div>
@@ -268,7 +268,7 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
                           ? 'text-[#16A34A]'
                           : job.status === 'Failed'
                           ? 'text-[#991B1B]'
-                          : 'text-[#141413]'
+                          : 'text-ink'
                       }`}
                     >
                       {job.status}
@@ -280,7 +280,7 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
           )}
 
           {/* 5 Backend Pipeline Stages List (Queued -> Analyzing garment -> Generating -> Processing -> Complete) */}
-          <div className="border border-[#E6E4DD] divide-y divide-[#E6E4DD] bg-[#FAF9F5]">
+          <div className="border border-line divide-y divide-line bg-canvas">
             {PIPELINE_STAGES.map((stage, idx) => {
               const isDone =
                 currentStatus === 'Complete' ||
@@ -299,15 +299,15 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
                 >
                   <div className="mt-0.5 shrink-0">
                     {isDone ? (
-                      <div className="w-5 h-5 bg-[#141413] text-white flex items-center justify-center">
+                      <div className="w-5 h-5 bg-ink text-white flex items-center justify-center">
                         <Check className="w-3 h-3" />
                       </div>
                     ) : isCurrent ? (
-                      <div className="w-5 h-5 border border-[#141413] flex items-center justify-center">
-                        <Loader2 className="w-3 h-3 text-[#141413] animate-spin" />
+                      <div className="w-5 h-5 border border-ink flex items-center justify-center">
+                        <Loader2 className="w-3 h-3 text-ink animate-spin" />
                       </div>
                     ) : (
-                      <div className="w-5 h-5 border border-[#D6D3C9] flex items-center justify-center text-[10px] font-mono text-[#78756C]">
+                      <div className="w-5 h-5 border border-line-strong flex items-center justify-center text-[10px] font-mono text-faint">
                         0{idx + 1}
                       </div>
                     )}
@@ -316,12 +316,12 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
                   <div>
                     <h2
                       className={`text-sm font-medium ${
-                        isDone || isCurrent ? 'text-[#141413]' : 'text-[#78756C]'
+                        isDone || isCurrent ? 'text-ink' : 'text-faint'
                       }`}
                     >
                       {stage.label}
                     </h2>
-                    <p className="text-xs text-[#6E6B62] mt-0.5 leading-relaxed">
+                    <p className="text-xs text-muted mt-0.5 leading-relaxed">
                       {stage.detail}
                     </p>
                   </div>
@@ -335,7 +335,7 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-xs font-medium text-[#57554E] hover:text-[#141413] transition-colors whitespace-nowrap"
+              className="px-4 py-2 text-xs font-medium text-muted hover:text-ink transition-colors whitespace-nowrap"
             >
               Return to Workspace
             </button>
@@ -344,7 +344,7 @@ export const GenerationStateView: React.FC<GenerationStateViewProps> = ({
               <button
                 type="button"
                 onClick={() => onComplete(polledShoot)}
-                className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-[#141413] bg-white border border-[#D6D3C9] hover:border-[#141413] transition-colors whitespace-nowrap"
+                className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-ink bg-white border border-line-strong hover:border-ink transition-colors whitespace-nowrap"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 View Completed Frames ({polledShoot.images.length})
