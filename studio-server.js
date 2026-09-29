@@ -1243,9 +1243,46 @@ async function userIdFromAuthorizationHeader(header) {
   if (!/^[0-9a-f-]{36}$/i.test(data.user.id)) return null;
   return data.user.id;
 }
+function cookieToken(header, name) {
+  if (!header) return "";
+  for (const part of header.split(";")) {
+    const trimmed = part.trim();
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    if (trimmed.slice(0, eq) !== name) continue;
+    return decodeURIComponent(trimmed.slice(eq + 1));
+  }
+  return "";
+}
+function tokenFromRequestUrl(url) {
+  const queryIndex = url.indexOf("?");
+  if (queryIndex === -1) return "";
+  return new URLSearchParams(url.slice(queryIndex + 1)).get("access_token") || "";
+}
+function isMediaRequest(url) {
+  const pathOnly = url.split("?")[0];
+  return pathOnly === "/api/media" || pathOnly === "/media";
+}
 async function userIdFromRequest(req) {
   const header = req.headers.authorization;
-  return userIdFromAuthorizationHeader(Array.isArray(header) ? header[0] : header);
+  const fromHeader = await userIdFromAuthorizationHeader(
+    Array.isArray(header) ? header[0] : header
+  );
+  if (fromHeader) return fromHeader;
+  const cookieHeader = req.headers.cookie;
+  const fromCookie = cookieToken(
+    Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader,
+    "veyra_media"
+  );
+  if (fromCookie) {
+    const userId = await userIdFromAuthorizationHeader(`Bearer ${fromCookie}`);
+    if (userId) return userId;
+  }
+  const url = req.url || "";
+  if (!isMediaRequest(url)) return null;
+  const fromQuery = tokenFromRequestUrl(url);
+  if (!fromQuery) return null;
+  return userIdFromAuthorizationHeader(`Bearer ${fromQuery}`);
 }
 
 // server.ts

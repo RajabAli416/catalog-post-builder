@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { GeneratedShootImage } from '../../types/studio';
-import { loadAuthorizedMedia } from '../../services/studioApi';
+import { getAccessToken, syncMediaCookie } from '../../lib/supabaseClient';
 
 interface FashionImageProps {
   src: string;
@@ -11,6 +11,10 @@ interface FashionImageProps {
   cropVariant?: GeneratedShootImage['cropVariant'];
   aspectClass?: string;
   fallbackLabel?: string;
+}
+
+function isStudioMedia(src: string): boolean {
+  return src.startsWith('/api/media') || src.includes('/api/media?');
 }
 
 export const FashionImage: React.FC<FashionImageProps> = ({
@@ -32,24 +36,26 @@ export const FashionImage: React.FC<FashionImageProps> = ({
       return;
     }
     let cancelled = false;
-    let objectUrl = '';
     setHasError(false);
     setDisplaySrc('');
-    loadAuthorizedMedia(src)
-      .then((url) => {
-        if (cancelled) {
-          if (url.startsWith('blob:')) URL.revokeObjectURL(url);
-          return;
-        }
-        objectUrl = url.startsWith('blob:') ? url : '';
-        setDisplaySrc(url);
+    const ready = isStudioMedia(src)
+      ? getAccessToken().then((token) => {
+          syncMediaCookie(token);
+          if (!token) throw new Error('Sign in required.');
+          const url = new URL(src, window.location.origin);
+          url.searchParams.set('access_token', token);
+          return `${url.pathname}${url.search}`;
+        })
+      : Promise.resolve(src);
+    ready
+      .then((nextSrc) => {
+        if (!cancelled) setDisplaySrc(nextSrc);
       })
       .catch(() => {
         if (!cancelled) setHasError(true);
       });
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src]);
 

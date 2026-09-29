@@ -59,7 +59,7 @@ import { SettingsView } from './components/views/SettingsView';
 import { CompareModal } from './components/common/CompareModal';
 import { ConfirmDialog } from './components/common/ConfirmDialog';
 import { LoginView } from './components/views/LoginView';
-import { supabase } from './lib/supabaseClient';
+import { supabase, syncMediaCookie } from './lib/supabaseClient';
 
 export default function App() {
   // Navigation & Responsive Sidebar State
@@ -127,9 +127,11 @@ export default function App() {
     let mounted = true;
     client.auth.getSession().then(({ data }) => {
       if (!mounted) return;
+      syncMediaCookie(data.session?.access_token ?? null);
       setSessionEmail(data.session?.user.email ?? null);
     });
     const { data: subscription } = client.auth.onAuthStateChange((_event, session) => {
+      syncMediaCookie(session?.access_token ?? null);
       setSessionEmail(session?.user.email ?? null);
       if (!session) clearStudio();
     });
