@@ -153,15 +153,19 @@ export default function App() {
         if (!mounted) return;
         if (data.projects?.length) {
           setProjects(data.projects);
+        } else {
+          setProjects([]);
         }
-        setProducts(data.products || []);
-        setActiveProduct((prev) => {
-          if (!data.products?.length) return null;
-          const matched = prev
-            ? data.products.find((p: CatalogueProduct) => p.id === prev.id)
-            : null;
-          return matched || data.products[0];
-        });
+        const nextProducts = data.products || [];
+        setProducts(nextProducts);
+        const newestProject = data.projects?.[0] || null;
+        const newestProducts = newestProject
+          ? nextProducts.filter((product) => product.projectId === newestProject.id)
+          : [];
+        setActiveProjectId(newestProject?.id ?? null);
+        setNewProjectTitle(newestProject?.name ?? '');
+        setCataloguePages(newestProject?.pages || []);
+        setActiveProduct(newestProducts[0] || null);
         if (data.shoots?.length) setShoots(data.shoots);
         if (data.generatedImages?.length)
           setGeneratedImages(data.generatedImages);
@@ -197,6 +201,18 @@ export default function App() {
   };
 
   const activeProject = projects.find((project) => project.id === activeProjectId) || null;
+  const projectProducts = activeProject
+    ? products.filter((product) => product.projectId === activeProject.id)
+    : [];
+  const workspaceProduct =
+    projectProducts.find((product) => product.id === activeProduct?.id) || null;
+
+  const focusProject = (project: StudioProject | null, product: CatalogueProduct | null) => {
+    setActiveProjectId(project?.id ?? null);
+    setNewProjectTitle(project?.name ?? '');
+    setCataloguePages(project?.pages || []);
+    setActiveProduct(product);
+  };
 
   const startCreateProject = () => {
     setCreateProjectName('');
@@ -215,6 +231,8 @@ export default function App() {
     setActiveProjectId(project.id);
     setNewProjectTitle(project.name);
     setCataloguePages(project.pages || []);
+    const own = products.filter((product) => product.projectId === project.id);
+    setActiveProduct(own[0] || null);
     setCreateProjectOpen(false);
     navigateTo('new-project');
   };
@@ -244,6 +262,7 @@ export default function App() {
       setActiveProjectId(project.id);
       setNewProjectTitle(project.name);
       setCataloguePages([]);
+      setActiveProduct(null);
       setCreateProjectOpen(false);
       navigateTo('new-project');
       triggerToast(`Created ${project.name}`);
@@ -352,8 +371,22 @@ export default function App() {
 
   // 3. Open Product Workspace & Structured Garment Analysis (Phase 2C)
   const handleOpenProductStudio = (product: CatalogueProduct) => {
-    setActiveProduct(product);
+    const project = projects.find((item) => item.id === product.projectId) || null;
+    focusProject(project, product);
     navigateTo('workspace');
+  };
+
+  const openWorkspace = () => {
+    if (!activeProject) {
+      navigateTo('projects');
+      return;
+    }
+    const current =
+      projectProducts.find((product) => product.id === activeProduct?.id) ||
+      projectProducts[0] ||
+      null;
+    setActiveProduct(current);
+    navigateTo(current ? 'workspace' : 'new-project');
   };
 
   const handleAnalyzeGarment = async (productId: string) => {
@@ -657,7 +690,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigateTo('workspace')}
+            onClick={openWorkspace}
             className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-ink bg-canvas border border-line-strong hover:border-ink transition-colors whitespace-nowrap"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -748,7 +781,7 @@ export default function App() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigateTo('workspace')}
+                    onClick={openWorkspace}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
                       activeTab === 'workspace' || activeTab === 'generating'
                         ? 'bg-ink text-white'
@@ -757,7 +790,7 @@ export default function App() {
                   >
                     <Sparkles className="w-4 h-4" />
                     <span className="truncate">
-                      Product Workspace{activeProduct ? ` (${activeProduct.sku})` : ''}
+                      Product Workspace{activeProject ? ` (${activeProject.name})` : ''}
                     </span>
                   </button>
                 </li>
@@ -971,10 +1004,11 @@ export default function App() {
             </div>
           )}
 
-          {!createProjectOpen && activeTab === 'workspace' && activeProduct && (
+          {!createProjectOpen && activeTab === 'workspace' && workspaceProduct && (
             <ProductWorkspaceView
-              product={activeProduct}
-              allProducts={products}
+              product={workspaceProduct}
+              projectName={activeProject?.name}
+              allProducts={projectProducts}
               config={shootConfig}
               isAnalyzingGarment={isAnalyzingGarment}
               onSelectProduct={setActiveProduct}
@@ -985,33 +1019,43 @@ export default function App() {
             />
           )}
 
-          {!createProjectOpen && activeTab === 'workspace' && !activeProduct && (
+          {!createProjectOpen && activeTab === 'workspace' && !workspaceProduct && (
             <div className="border border-line bg-white p-8">
               <h1 className="font-editorial text-3xl font-semibold text-ink">
-                No garment selected
+                {activeProject ? activeProject.name : 'No project open'}
               </h1>
               <p className="mt-2 text-sm text-muted">
-                Create a project, then upload a PDF or garment photos.
+                {activeProject
+                  ? 'This project has no garments yet. Upload a PDF or photos to start a shoot.'
+                  : 'Create a project, then upload a PDF or garment photos.'}
               </p>
+              <button
+                type="button"
+                onClick={activeProject ? openCatalogue : startCreateProject}
+                className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-xs font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {activeProject ? 'Upload garments' : 'New Project'}
+              </button>
             </div>
           )}
 
-          {!createProjectOpen && activeTab === 'generating' && activeProduct && (
+          {!createProjectOpen && activeTab === 'generating' && workspaceProduct && (
             <GenerationStateView
-              product={activeProduct}
+              product={workspaceProduct}
               config={shootConfig}
               activeShoot={activeShoot}
               onShootUpdated={handleShootUpdated}
               onComplete={handleCompleteGeneration}
               onRetry={handleRetryShoot}
-              onCancel={() => navigateTo('workspace')}
+              onCancel={openWorkspace}
             />
           )}
 
           {!createProjectOpen && activeTab === 'shoot-gallery' && (
             <ShootGalleryView
               images={generatedImages}
-              activeProduct={activeProduct}
+              activeProduct={workspaceProduct}
               onToggleSelectForPost={handleToggleSelectImageForPost}
               onSelectAllForPost={handleSelectAllImagesForPost}
               onCompareImage={(img) => {
@@ -1025,15 +1069,15 @@ export default function App() {
               onRegenerateImage={(imgId) => handleRegenerateSingleImage(imgId)}
               onDeleteImageRequest={(img) => setImageToDelete(img)}
               onOpenPostBuilder={() => navigateTo('post-builder')}
-              onBackToWorkspace={() => navigateTo('workspace')}
+              onBackToWorkspace={openWorkspace}
             />
           )}
 
-          {!createProjectOpen && activeTab === 'post-builder' && activeProduct && (
+          {!createProjectOpen && activeTab === 'post-builder' && workspaceProduct && (
             <InstagramPostBuilderView
               selectedImages={selectedCarouselImages}
               allGeneratedImages={generatedImages}
-              activeProduct={activeProduct}
+              activeProduct={workspaceProduct}
               onUpdateCarouselIds={handleUpdateCarouselIds}
               onSaveDraft={handleSavePostDraft}
               onBackToGallery={() => navigateTo('shoot-gallery')}
@@ -1057,8 +1101,11 @@ export default function App() {
               onOpenProject={openProject}
               onSelectProductForStudio={handleOpenProductStudio}
               onOpenShootInGallery={(shoot) => {
-                const prod = products.find((p) => p.id === shoot.productId);
-                if (prod) setActiveProduct(prod);
+                const prod = products.find((p) => p.id === shoot.productId) || null;
+                const project = prod
+                  ? projects.find((item) => item.id === prod.projectId) || null
+                  : null;
+                if (prod) focusProject(project, prod);
                 navigateTo('shoot-gallery');
               }}
               onOpenPostBuilder={() => navigateTo('post-builder')}

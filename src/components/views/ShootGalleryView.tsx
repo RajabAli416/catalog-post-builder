@@ -18,6 +18,7 @@ import {
   ShotPoseType,
 } from '../../types/studio';
 import { FashionImage } from '../common/FashionImage';
+import { loadAuthorizedMedia } from '../../services/studioApi';
 import { CopyButton } from '../common/CopyButton';
 
 interface ShootGalleryViewProps {
@@ -61,15 +62,20 @@ export const ShootGalleryView: React.FC<ShootGalleryViewProps> = ({
 
   const selectedImages = images.filter((img) => img.selectedForPost);
 
-  const handleDownloadPlate = (img: GeneratedShootImage) => {
+  const handleDownloadPlate = async (img: GeneratedShootImage) => {
     setDownloadingId(img.id);
-    const link = document.createElement('a');
-    link.href = img.imageUrl;
-    link.download = `${img.productSku}_${img.shotType.replace(/\s+/g, '_')}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => setDownloadingId(null), 600);
+    try {
+      const href = await loadAuthorizedMedia(img.imageUrl);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = `${img.productSku}_${img.shotType.replace(/\s+/g, '_')}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      if (href.startsWith('blob:')) URL.revokeObjectURL(href);
+    } finally {
+      setTimeout(() => setDownloadingId(null), 600);
+    }
   };
 
   return (

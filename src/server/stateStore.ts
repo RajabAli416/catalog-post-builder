@@ -41,10 +41,37 @@ function isLegacyDemoState(state: StudioDatabaseState): boolean {
   );
 }
 
+function cleanPlaceholderLabels(state: StudioDatabaseState): StudioDatabaseState {
+  const cannedFabric = 'High-Resolution Garment Plate · Ready for Gemini Vision Analysis';
+  const skuByProduct = new Map<string, string>();
+  const products = state.products.map((product, index) => {
+    const fakeSku = /^AN-26-\d+$/.test(product.sku);
+    const sku = fakeSku ? product.name || `Piece ${index + 1}` : product.sku;
+    if (fakeSku) skuByProduct.set(product.id, sku);
+    return {
+      ...product,
+      sku,
+      fabricDetails: product.fabricDetails === cannedFabric ? 'Uploaded garment' : product.fabricDetails,
+    };
+  });
+  return {
+    ...state,
+    products,
+    shoots: state.shoots.map((shoot) => {
+      const sku = skuByProduct.get(shoot.productId);
+      return sku ? { ...shoot, productSku: sku } : shoot;
+    }),
+    generatedImages: state.generatedImages.map((image) => {
+      const sku = skuByProduct.get(image.productId);
+      return sku ? { ...image, productSku: sku } : image;
+    }),
+  };
+}
+
 function normalizeState(parsed: StudioDatabaseState): StudioDatabaseState {
   if (!parsed || !Array.isArray(parsed.projects)) return createEmptyState();
   if (isLegacyDemoState(parsed)) return createEmptyState();
-  return {
+  return cleanPlaceholderLabels({
     ...createEmptyState(),
     ...parsed,
     aiMode: 'live',
@@ -53,7 +80,7 @@ function normalizeState(parsed: StudioDatabaseState): StudioDatabaseState {
     shoots: parsed.shoots || [],
     generatedImages: parsed.generatedImages || [],
     postDrafts: parsed.postDrafts || [],
-  };
+  });
 }
 
 function readJsonFile(filePath: string): StudioDatabaseState {

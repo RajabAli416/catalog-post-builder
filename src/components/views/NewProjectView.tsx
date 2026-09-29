@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Check,
   CheckSquare,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { CataloguePagePlate, CatalogueProduct } from '../../types/studio';
 import { FashionImage } from '../common/FashionImage';
+import { loadAuthorizedMedia } from '../../services/studioApi';
 
 interface NewProjectViewProps {
   detectedProducts: CatalogueProduct[];
@@ -115,9 +116,38 @@ export const NewProjectView: React.FC<NewProjectViewProps> = ({
       label: 'Catalogue Page 01',
     };
 
+  const [pagePreviewUrl, setPagePreviewUrl] = useState('');
+
+  useEffect(() => {
+    const src = activePage.imageUrl;
+    if (!src) {
+      setPagePreviewUrl('');
+      return;
+    }
+    let cancelled = false;
+    let objectUrl = '';
+    loadAuthorizedMedia(src)
+      .then((url) => {
+        if (cancelled) {
+          if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url.startsWith('blob:') ? url : '';
+        setPagePreviewUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setPagePreviewUrl('');
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [activePage.imageUrl]);
+
   const handleCreateManualCropProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activePage.imageUrl) return;
+    const sourceUrl = pagePreviewUrl || activePage.imageUrl;
+    if (!sourceUrl) return;
     setIsExtractingManual(true);
     setUploadError(null);
 
@@ -145,11 +175,11 @@ export const NewProjectView: React.FC<NewProjectViewProps> = ({
             ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
             resolve(canvas.toDataURL('image/jpeg', 0.92));
           } else {
-            resolve(activePage.imageUrl);
+            resolve(sourceUrl);
           }
         };
-        img.onerror = () => resolve(activePage.imageUrl);
-        img.src = activePage.imageUrl;
+        img.onerror = () => resolve(sourceUrl);
+        img.src = sourceUrl;
       });
 
       await onManualExtractProduct({
@@ -392,11 +422,15 @@ export const NewProjectView: React.FC<NewProjectViewProps> = ({
             {/* Left: Interactive Crop Bounding Preview */}
             <div className="lg:col-span-5 space-y-3">
               <div className="relative border border-line bg-[#EFECE4] overflow-hidden aspect-[3/4]">
-                <img
-                  src={activePage.imageUrl}
-                  alt={activePage.label}
-                  className="w-full h-full object-cover"
-                />
+                {pagePreviewUrl ? (
+                  <img
+                    src={pagePreviewUrl}
+                    alt={activePage.label}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full bg-wash" />
+                )}
                 {/* Highlighted Crop Region Box */}
                 <div
                   className="absolute border-2 border-ink bg-white/10 shadow-[0_0_0_9999px_rgba(20,20,19,0.42)] pointer-events-none transition-all duration-150"

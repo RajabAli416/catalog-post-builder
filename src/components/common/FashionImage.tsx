@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { GeneratedShootImage } from '../../types/studio';
+import { loadAuthorizedMedia } from '../../services/studioApi';
 
 interface FashionImageProps {
   src: string;
@@ -21,9 +22,37 @@ export const FashionImage: React.FC<FashionImageProps> = ({
   aspectClass = 'aspect-[4/5]',
   fallbackLabel,
 }) => {
+  const [displaySrc, setDisplaySrc] = useState('');
   const [hasError, setHasError] = useState(false);
 
-  // Subtle editorial framing variations so multi-pose shots feel distinct and realistic
+  useEffect(() => {
+    if (!src) {
+      setDisplaySrc('');
+      setHasError(true);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl = '';
+    setHasError(false);
+    setDisplaySrc('');
+    loadAuthorizedMedia(src)
+      .then((url) => {
+        if (cancelled) {
+          if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url.startsWith('blob:') ? url : '';
+        setDisplaySrc(url);
+      })
+      .catch(() => {
+        if (!cancelled) setHasError(true);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+
   const variantTransform: Record<NonNullable<GeneratedShootImage['cropVariant']>, string> = {
     full: 'scale-100 object-center',
     'three-quarter': 'scale-[1.14] object-[50%_18%]',
@@ -44,17 +73,19 @@ export const FashionImage: React.FC<FashionImageProps> = ({
         <p className="font-editorial text-lg text-ink leading-snug max-w-[20ch]">
           {fallbackLabel || alt}
         </p>
-        <span className="mt-1 text-[11px] font-mono text-faint">
-          Studio Archive Plate
-        </span>
+        <span className="mt-1 text-[11px] font-mono text-faint">Image unavailable</span>
       </div>
     );
+  }
+
+  if (!displaySrc) {
+    return <div className={`bg-wash ${aspectClass} ${containerClassName}`} />;
   }
 
   return (
     <div className={`relative overflow-hidden bg-[#EFECE4] ${aspectClass} ${containerClassName}`}>
       <img
-        src={src}
+        src={displaySrc}
         alt={alt}
         referrerPolicy="no-referrer"
         onError={() => setHasError(true)}

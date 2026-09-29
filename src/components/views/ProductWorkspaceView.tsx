@@ -23,6 +23,7 @@ import { FashionImage } from '../common/FashionImage';
 
 interface ProductWorkspaceViewProps {
   product: CatalogueProduct;
+  projectName?: string;
   allProducts: CatalogueProduct[];
   config: ShootConfiguration;
   isAnalyzingGarment?: boolean;
@@ -69,6 +70,7 @@ const ALL_ASPECT_RATIOS: AspectRatioType[] = [
 
 export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
   product,
+  projectName,
   allProducts,
   config,
   isAnalyzingGarment = false,
@@ -120,11 +122,9 @@ export const ProductWorkspaceView: React.FC<ProductWorkspaceViewProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2 text-xs text-muted">
-              <span>Product Workspace</span>
+              <span>{projectName || 'Product Workspace'}</span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono">{product.sku}</span>
-              <span aria-hidden="true">·</span>
-              <span>{product.category}</span>
+              <span className="font-mono">{product.name}</span>
             </div>
             <h1 className="font-editorial text-2xl md:text-3xl font-semibold text-ink">
               {product.name}

@@ -350,7 +350,7 @@ Return a JSON array of detected garments with sku, name, category, fabricDetails
             return {
               id: `prod-${Date.now()}-${idx + 1}`,
               projectId,
-              sku: String(item.sku || `AN-26-0${40 + idx}`),
+              sku: String(item.sku || `Piece ${idx + 1}`),
               name: String(item.name || `Catalogue Piece 0${idx + 1}`),
               category: String(item.category || 'Luxury Pret'),
               fabricDetails: String(item.fabricDetails || 'Pure Woven Silk & Artisanal Embroidery'),
@@ -402,10 +402,10 @@ Return a JSON array of detected garments with sku, name, category, fabricDetails
       return {
         id: `prod-${Date.now()}-${idx + 1}`,
         projectId,
-        sku: `AN-26-${31 + idx}`,
-        name: cleanBase.length > 3 ? cleanBase : `Uploaded Garment Piece 0${idx + 1}`,
-        category: 'Uploaded Garment · Custom Piece',
-        fabricDetails: 'High-Resolution Garment Plate · Ready for Gemini Vision Analysis',
+        sku: cleanBase.length > 3 ? cleanBase.slice(0, 40) : `Piece ${idx + 1}`,
+        name: cleanBase.length > 3 ? cleanBase : `Garment ${idx + 1}`,
+        category: 'Uploaded garment',
+        fabricDetails: 'Uploaded garment photo',
         rawCatalogueText: `UPLOADED GARMENT FILE: ${file.originalName}. SOURCE PLATE #${idx + 1}.`,
         garmentImageUrl: file.publicUrl,
         referenceImage: file.publicUrl,

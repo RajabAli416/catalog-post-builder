@@ -26,6 +26,14 @@ export async function studioFetch(input: string, init: RequestInit = {}): Promis
   return res;
 }
 
+/** Browser image tags cannot send the sign-in token, so private media is fetched here. */
+export async function loadAuthorizedMedia(src: string): Promise<string> {
+  if (!src.startsWith('/api/')) return src;
+  const res = await studioFetch(src);
+  if (!res.ok) throw new Error('Image failed to load.');
+  return URL.createObjectURL(await res.blob());
+}
+
 export interface BootstrapResponse {
   aiMode: AIMode;
   projects: StudioProject[];
